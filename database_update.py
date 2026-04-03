@@ -5,9 +5,9 @@ conn = sqlite3.connect('crm.db')
 cursor = conn.cursor()
 
 # Add the new column
-cursor.execute('ALTER TABLE customers ADD COLUMN summary TEXT')
+cursor.execute('ALTER TABLE customers DROP COLUMN messages')
 
 conn.commit()
 conn.close()
 
-print("Summary column added successfully!")
+print("Messages column dropped successfully!")
