@@ -1,0 +1,4 @@
+1. Situation: You are coordinating with Vedant regarding your schedule and the location of important documents.
+2. Customer Needs: Vedant needs information about contract files' location in Drive and immediate contact post-session.
+3. Latest Requests: Vedant cannot find the recent contracts in Drive and requests you to call him as soon as possible after your session ends.
+4. Recommended Next Step: Locate the contract files and send an updated link, then call Vedant immediately following your current session.

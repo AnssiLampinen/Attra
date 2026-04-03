@@ -12,6 +12,8 @@ cursor.execute('''
         id INTEGER PRIMARY KEY,
         name TEXT,
         phone TEXT,
+        summary TEXT,
+        status TEXT,
         email TEXT,
         
         -- Beeper Supported Networks
@@ -27,10 +29,7 @@ cursor.execute('''
         google_messages_id TEXT,
         google_chat_id TEXT,
         google_voice_id TEXT,
-        
-        messages TEXT,
-        status TEXT,
-        summary TEXT
+
     )
 ''')
 conn.commit()
@@ -39,12 +38,14 @@ conn.commit()
 def save_customer(customer):
     cursor.execute('''
         INSERT OR REPLACE INTO customers 
-        (id, name, phone, email, whatsapp_id, instagram_id, messenger_id, telegram_id, signal_id, twitter_id, linkedin_id, slack_id, discord_id, google_messages_id, google_chat_id, messages, status, summary) 
+        (id, name, phone, summary, status, email, whatsapp_id, instagram_id, messenger_id, telegram_id, signal_id, twitter_id, linkedin_id, slack_id, discord_id, google_messages_id, google_chat_id, google_voice_id) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         customer.customer_id, 
         customer.name, 
         customer.phone, 
+        customer.summary,
+        customer.status,
         customer.email, 
         customer.whatsapp_id,
         customer.instagram_id,
@@ -57,21 +58,21 @@ def save_customer(customer):
         customer.discord_id,
         customer.google_messages_id,
         customer.google_chat_id,
-        json.dumps([asdict(m) for m in customer.messages]), 
-        customer.status,
-        customer.summary
+        customer.google_voice_id,
     ))
     conn.commit()
 
 def save_customer(customer):
     cursor.execute('''
         INSERT OR REPLACE INTO customers 
-        (id, name, phone, email, whatsapp_id, instagram_id, messenger_id, telegram_id, signal_id, twitter_id, linkedin_id, slack_id, discord_id, google_messages_id, google_chat_id, messages, status, summary) 
+        (id, name, phone, summary, status, email, whatsapp_id, instagram_id, messenger_id, telegram_id, signal_id, twitter_id, linkedin_id, slack_id, discord_id, google_messages_id, google_chat_id, google_voice_id) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         customer.customer_id, 
         customer.name, 
         customer.phone, 
+        customer.summary,
+        customer.status,
         customer.email, 
         customer.whatsapp_id,
         customer.instagram_id,
@@ -84,8 +85,6 @@ def save_customer(customer):
         customer.discord_id,
         customer.google_messages_id,
         customer.google_chat_id,
-        json.dumps([asdict(m) for m in customer.messages]), 
-        customer.status,
-        customer.summary
+        customer.google_voice_id,
     ))
     conn.commit()
