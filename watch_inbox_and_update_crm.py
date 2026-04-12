@@ -1,19 +1,22 @@
 import os
-import sqlite3
 import time
 from datetime import datetime, timezone
 from typing import Any
 
+from config import USER_NAME
 from create_crm_entry_from_latest_chat import (
-    DB_PATH,
     DEFAULT_STATUS,
     _build_customer_profile,
     _contact_metadata,
-    _ensure_customers_table,
-    _existing_columns,
-    _find_existing_customer_id,
     _network_column_values_from_metadata,
-    _next_customer_id,
+)
+from database import (
+    DEFAULT_TENANT_ID,
+    find_customer,
+    get_customer,
+    initialize_database,
+    resolve_tenant_id_by_api_key,
+    upsert_customer_payload,
 )
 from fetch_latest_private_chat_messages import (
     _call_ollama,
@@ -29,6 +32,12 @@ from test import (
 )
 
 
+TENANT_API_KEY = os.getenv("CRM_TENANT_API_KEY")
+initialize_database()
+TENANT_ID = os.getenv("CRM_TENANT_ID") or (
+    resolve_tenant_id_by_api_key(TENANT_API_KEY) if TENANT_API_KEY else DEFAULT_TENANT_ID
+)
+
 POLL_INTERVAL_SECONDS = int(os.getenv("INBOX_POLL_INTERVAL_SECONDS", "20"))
 RECENT_MESSAGE_LIMIT = int(os.getenv("INBOX_RECENT_MESSAGE_LIMIT", "10"))
 SCAN_CHAT_LIMIT = int(os.getenv("INBOX_SCAN_CHAT_LIMIT", "100"))
@@ -37,7 +46,7 @@ MONITORED_CONVERSATIONS = 5
 STRICT_SUMMARY_FORMAT = (
     "Create a short, structured note from these chat messages for a service provider. "
     "Only include details that are explicitly stated in the messages. Ignore call events and missed-call notifications. "
-    "Address Anaking as 'you'.\n\n"
+    f"Address {USER_NAME} as 'you'.\n\n"
     "Output format (exactly these four lines):\n"
     "1. Situation: <one sentence on overall context>\n"
     "2. Customer Needs: <one sentence on what the customer needs/wants>\n"
@@ -112,25 +121,11 @@ def _message_id(message: Any) -> str:
     return str(value) if value is not None else ""
 
 
-def _latest_message_id(messages: list[Any]) -> str:
-    if not messages:
-        return ""
-    ordered = _sorted_messages(messages)
-    return _message_id(ordered[-1])
-
-
-def _customer_row_by_id(cursor: sqlite3.Cursor, customer_id: int) -> sqlite3.Row | None:
-    row = cursor.execute("SELECT * FROM customers WHERE id = ?", (customer_id,)).fetchone()
-    return row
-
-
-def _row_to_dict(row: sqlite3.Row | None) -> dict[str, Any]:
-    if row is None:
-        return {}
-    return dict(row)
-
-
-def _merge_contact_fields(existing: dict[str, Any], contact: dict[str, str], network_values: dict[str, str]) -> dict[str, Any]:
+def _merge_contact_fields(
+    existing: dict[str, Any],
+    contact: dict[str, str],
+    network_values: dict[str, str],
+) -> dict[str, Any]:
     merged = dict(existing)
     for key, value in (
         ("name", contact.get("name", "")),
@@ -148,31 +143,6 @@ def _merge_contact_fields(existing: dict[str, Any], contact: dict[str, str], net
         merged["status"] = DEFAULT_STATUS
 
     return merged
-
-
-def _write_customer_row(conn: sqlite3.Connection, table_columns: set[str], payload: dict[str, Any], customer_id: int) -> None:
-    filtered = {key: value for key, value in payload.items() if key in table_columns}
-    if "id" not in filtered:
-        filtered["id"] = customer_id
-
-    columns_sql = ", ".join(filtered.keys())
-    values_sql = ", ".join(f":{key}" for key in filtered.keys())
-    conn.execute(
-        f"INSERT OR REPLACE INTO customers ({columns_sql}) VALUES ({values_sql})",
-        filtered,
-    )
-
-
-def _ensure_tracking_column(cursor: sqlite3.Cursor) -> None:
-    columns = _existing_columns(cursor)
-    if "last_processed_message_id" not in columns:
-        cursor.execute("ALTER TABLE customers ADD COLUMN last_processed_message_id TEXT")
-    if "profile_notes" not in columns:
-        cursor.execute("ALTER TABLE customers ADD COLUMN profile_notes TEXT")
-    if "last_updated_at" not in columns:
-        cursor.execute("ALTER TABLE customers ADD COLUMN last_updated_at TEXT")
-    if "customer_profile" not in columns:
-        cursor.execute("ALTER TABLE customers ADD COLUMN customer_profile TEXT")
 
 
 def _update_profile_notes(existing_profile_notes: str, recent_messages: list[Any]) -> str:
@@ -198,7 +168,11 @@ def _update_profile_notes(existing_profile_notes: str, recent_messages: list[Any
     return cleaned
 
 
-def _build_strict_summary(existing_summary: str, profile_notes: str, recent_messages: list[Any]) -> str:
+def _build_strict_summary(
+    existing_summary: str,
+    profile_notes: str,
+    recent_messages: list[Any],
+) -> str:
     recent_text = _format_messages(recent_messages)
     prompt = (
         f"{STRICT_SUMMARY_FORMAT}\n\n"
@@ -212,27 +186,26 @@ def _build_strict_summary(existing_summary: str, profile_notes: str, recent_mess
     return summary_text.strip()
 
 
-def _process_chat(conn: sqlite3.Connection, cursor: sqlite3.Cursor, chat: Any, table_columns: set[str]) -> None:
+def _process_chat(chat: Any) -> None:
     recent_messages = _fetch_last_messages(chat, limit=max(RECENT_MESSAGE_LIMIT, 50))
     ordered = _sorted_messages(recent_messages)
     if not ordered:
         return
 
-    latest_message_id = _message_id(ordered[-1])
-    if not latest_message_id:
+    latest_msg_id = _message_id(ordered[-1])
+    if not latest_msg_id:
         return
 
     last_messages = ordered[-RECENT_MESSAGE_LIMIT:]
 
     contact = _contact_metadata(chat, last_messages)
     network_values = _network_column_values_from_metadata(
-        chat,
         contact["network"],
         contact["handle"],
         contact["phone"],
     )
 
-    existing_id = _find_existing_customer_id(cursor, contact["name"], network_values, table_columns)
+    existing_id = find_customer(TENANT_ID, contact["name"], network_values)
 
     if existing_id is None:
         profile_notes = _update_profile_notes("", last_messages)
@@ -242,28 +215,25 @@ def _process_chat(conn: sqlite3.Connection, cursor: sqlite3.Cursor, chat: Any, t
         customer_profile = _build_customer_profile(last_messages)
         summary_text = _build_strict_summary("", profile_notes, last_messages)
 
-        payload = {
-            "id": _next_customer_id(cursor),
+        payload: dict[str, Any] = {
             "name": contact["name"],
             "phone": contact["phone"],
-            "summary": summary_text.strip(),
-            "status": DEFAULT_STATUS,
             "email": contact["email"],
-            "last_processed_message_id": latest_message_id,
+            "summary": summary_text,
+            "status": DEFAULT_STATUS,
+            "last_processed_message_id": latest_msg_id,
             "profile_notes": profile_notes,
             "customer_profile": customer_profile,
             "last_updated_at": _now_iso(),
             **network_values,
         }
-        _write_customer_row(conn, table_columns, payload, payload["id"])
-        conn.commit()
+        upsert_customer_payload(TENANT_ID, payload)
         print(f"Created new CRM entry for '{contact['name']}' from chat '{_chat_title(chat)}'")
         return
 
-    row = _customer_row_by_id(cursor, existing_id)
-    existing = _row_to_dict(row)
+    existing = get_customer(TENANT_ID, existing_id) or {}
     stored_message_id = str(existing.get("last_processed_message_id") or "")
-    if stored_message_id == latest_message_id:
+    if stored_message_id == latest_msg_id:
         print(f"No new messages in '{_chat_title(chat)}'; skipping")
         return
 
@@ -274,15 +244,14 @@ def _process_chat(conn: sqlite3.Connection, cursor: sqlite3.Cursor, chat: Any, t
     updated_summary = _build_strict_summary(existing_summary, updated_profile_notes, last_messages)
 
     merged = _merge_contact_fields(existing, contact, network_values)
+    merged["id"] = existing_id
     merged["summary"] = updated_summary
     merged["profile_notes"] = updated_profile_notes
     merged["customer_profile"] = updated_customer_profile
-    merged["last_processed_message_id"] = latest_message_id
+    merged["last_processed_message_id"] = latest_msg_id
     merged["last_updated_at"] = _now_iso()
-    merged["id"] = existing_id
 
-    _write_customer_row(conn, table_columns, merged, existing_id)
-    conn.commit()
+    upsert_customer_payload(TENANT_ID, merged)
 
     if updated_summary == existing_summary:
         print(f"No summary change for '{merged.get('name', contact['name'])}'")
@@ -290,23 +259,12 @@ def _process_chat(conn: sqlite3.Connection, cursor: sqlite3.Cursor, chat: Any, t
         print(f"Updated summary for '{merged.get('name', contact['name'])}'")
 
 
-def poll_once(db_path: str = DB_PATH) -> None:
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    try:
-        _ensure_customers_table(conn)
-        cursor = conn.cursor()
-        _ensure_tracking_column(cursor)
-        conn.commit()
-        table_columns = _existing_columns(cursor)
-
-        for chat in _fetch_all_private_chats():
-            try:
-                _process_chat(conn, cursor, chat, table_columns)
-            except Exception as exc:
-                print(f"Failed to process chat '{_chat_title(chat)}': {exc}")
-    finally:
-        conn.close()
+def poll_once() -> None:
+    for chat in _fetch_all_private_chats():
+        try:
+            _process_chat(chat)
+        except Exception as exc:
+            print(f"Failed to process chat '{_chat_title(chat)}': {exc}")
 
 
 def main() -> None:

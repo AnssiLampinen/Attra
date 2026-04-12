@@ -5,6 +5,7 @@ import socket
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from config import USER_NAME
 from test import _fetch_last_messages, _find_latest_private_chat, _chat_title
 
 
@@ -14,7 +15,6 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:32b")
 OLLAMA_TIMEOUT_SECONDS = int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "300"))
 SUMMARY_MAX_TOKENS = 1200
 SUMMARY_OUTPUT_PATH = "latest_private_chat_summary.txt"
-USER_NAME = "Anaking"
 
 
 def _load_env_file(path=".env"):
