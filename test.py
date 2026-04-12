@@ -23,13 +23,14 @@ def _load_env_file(path: str = ".env") -> None:
 _load_env_file()
 
 ACCESS_TOKEN = os.getenv("BEEPER_ACCESS_TOKEN")
+BEEPER_BASE_URL = os.getenv("BEEPER_BASE_URL", "http://localhost:23373")
 MESSAGE_LIMIT = 50
 
 if not ACCESS_TOKEN:
     raise RuntimeError("Missing BEEPER_ACCESS_TOKEN in .env")
 
 
-client = BeeperDesktop(access_token=ACCESS_TOKEN)
+client = BeeperDesktop(access_token=ACCESS_TOKEN, base_url=BEEPER_BASE_URL)
 
 
 def _items(result):
