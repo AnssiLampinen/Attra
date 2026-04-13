@@ -35,7 +35,8 @@ CREATE TABLE customers (
     discord_id TEXT,
     google_messages_id TEXT,
     google_chat_id TEXT,
-    google_voice_id TEXT
+    google_voice_id TEXT,
+    pinned BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- Index for fast tenant lookups

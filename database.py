@@ -115,7 +115,7 @@ def create_customer(tenant_id: str, payload: dict) -> dict:
         "name", "phone", "email", "status", "notes", "customer_profile",
         "whatsapp_id", "instagram_id", "messenger_id", "telegram_id", "signal_id",
         "twitter_id", "linkedin_id", "slack_id", "discord_id",
-        "google_messages_id", "google_chat_id", "google_voice_id",
+        "google_messages_id", "google_chat_id", "google_voice_id", "pinned",
     }
     data = {k: v for k, v in payload.items() if k in allowed}
     data["tenant_id"] = tenant_id
@@ -220,7 +220,7 @@ def update_customer(tenant_id: str, customer_id: int, payload: dict) -> dict | N
         "name", "phone", "email", "status", "notes", "profile_notes", "customer_profile",
         "whatsapp_id", "instagram_id", "messenger_id", "telegram_id", "signal_id",
         "twitter_id", "linkedin_id", "slack_id", "discord_id",
-        "google_messages_id", "google_chat_id", "google_voice_id",
+        "google_messages_id", "google_chat_id", "google_voice_id", "pinned",
     }
     data = {k: v for k, v in payload.items() if k in allowed}
     data["last_updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -456,6 +456,21 @@ def mark_batch_processing(batch_id: int) -> None:
             f"mark_batch_processing: update returned no data for batch_id={batch_id}. "
             "Check that the 'processing' column exists (run: ALTER TABLE raw_messages ADD COLUMN processing BOOLEAN NOT NULL DEFAULT FALSE)."
         )
+
+
+def get_all_customer_events(tenant_id: str) -> list[dict]:
+    result = (
+        supabase.table("customer_events")
+        .select("id, title, event_date, event_time, customer_id, customers(name)")
+        .eq("tenant_id", tenant_id)
+        .order("event_date")
+        .execute()
+    )
+    rows = result.data or []
+    for row in rows:
+        customer = row.pop("customers", None)
+        row["customer_name"] = (customer or {}).get("name") or ""
+    return rows
 
 
 def get_customer_events(tenant_id: str, customer_id: int) -> list[dict]:

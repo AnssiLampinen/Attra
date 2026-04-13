@@ -12,6 +12,7 @@ from database import (
     create_deal,
     create_tag,
     delete_customer_event,
+    get_all_customer_events,
     get_customer_events,
     get_customer_tags,
     get_tags_for_tenant,
@@ -202,6 +203,18 @@ class AppHandler(SimpleHTTPRequestHandler):
                     return
                 mapping = load_customer_tags_for_tenant(tenant_id)
                 _json_response(self, 200, {"customer_tags": mapping})
+            except Exception as exc:
+                _json_response(self, 500, {"error": str(exc)})
+            return
+
+        if path == "/api/events":
+            try:
+                tenant_id = _tenant_id_for_request(self)
+                if not tenant_id:
+                    _json_response(self, 401, {"error": "Missing or invalid token"})
+                    return
+                events = get_all_customer_events(tenant_id)
+                _json_response(self, 200, {"events": events})
             except Exception as exc:
                 _json_response(self, 500, {"error": str(exc)})
             return
