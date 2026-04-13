@@ -1,0 +1,7 @@
+INSERT INTO tenants (id, name, api_key, supabase_user_id)
+VALUES (
+  'your-tenant-id',
+  'Your Name',
+  gen_random_uuid()::text,
+  'your-supabase-user-uuid'
+);

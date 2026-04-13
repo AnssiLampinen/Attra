@@ -70,178 +70,97 @@
         },
       }
     </script>
-<style>
-      .material-symbols-outlined {
-        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-      }
-      body {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        background-color: #fdf9f2;
-        color: #1c1c18;
-      }
-      .serif-display {
-        font-family: 'Newsreader', serif;
-      }
-      .mix-blend-multiply {
-        mix-blend-mode: multiply;
-      }
-      #sidebar {
-        transition: transform 0.3s ease;
-      }
-      #sidebar.sidebar-hidden {
-        transform: translateX(-100%);
-      }
-      #main-content {
-        transition: margin-left 0.3s ease;
-      }
-      #main-content.sidebar-hidden {
-        margin-left: 0;
-      }
-      #search-wrapper {
-        transition: padding-left 0.3s ease;
-      }
-      #search-wrapper.sidebar-hidden {
-        padding-left: 0;
-      }
-      .page { display: none; }
-      .page.active { display: block; }
-      .crm-row:hover { background-color: #f7f3ed; }
-      .crm-row { transition: background-color 0.15s ease; }
-      #search-ph-wrap { transition: opacity 0.2s ease; }
-      #search-ph-wrap span { transition: opacity 0.55s ease; }
-      @keyframes blink-cursor {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0; }
-      }
-      .typewriter-cursor {
-        display: inline-block;
-        width: 3px;
-        height: 0.82em;
-        background: #0058be;
-        margin-left: 3px;
-        vertical-align: middle;
-        border-radius: 1px;
-        animation: blink-cursor 0.75s step-end infinite;
-      }
-    </style>
+<link rel="stylesheet" href="app.css?v=2"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body class="bg-surface text-on-surface min-h-screen">
 
-<script>
-  function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('sidebar-hidden');
-    document.getElementById('main-content').classList.toggle('sidebar-hidden');
-    document.getElementById('search-wrapper').classList.toggle('sidebar-hidden');
-  }
+<!-- Login overlay -->
+<div id="login-overlay" class="fixed inset-0 z-50 flex items-center justify-center bg-background">
+  <div class="w-full max-w-sm p-8 rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-lg">
+    <h1 class="text-2xl font-headline font-bold text-on-surface mb-1">ATTRA</h1>
 
-  var _userName = 'Mikko';
+    <!-- Sign-in form -->
+    <div id="login-panel">
+      <p class="text-sm text-secondary mb-8">Sign in to your account</p>
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-on-surface mb-1" for="login-email">Email</label>
+          <input id="login-email" type="email" autocomplete="email"
+            class="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" required />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-on-surface mb-1" for="login-password">Password</label>
+          <input id="login-password" type="password" autocomplete="current-password"
+            class="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" required />
+        </div>
+        <p id="login-error" class="text-sm text-error hidden"></p>
+        <button type="submit"
+          class="w-full py-2 rounded-lg bg-primary text-on-primary font-medium text-sm hover:opacity-90 transition-opacity">
+          Sign in
+        </button>
+        <p class="text-center">
+          <button type="button" id="forgot-password-link" class="text-sm text-primary hover:underline">Forgot password?</button>
+        </p>
+      </form>
+    </div>
 
-  function getGreeting() {
-    var h = new Date().getHours();
-    if (h < 12) return 'Good morning, ' + _userName + '.';
-    if (h < 17) return 'Good afternoon, ' + _userName + '.';
-    return 'Good evening, ' + _userName + '.';
-  }
+    <!-- Forgot password form -->
+    <div id="forgot-password-panel" class="hidden">
+      <p class="text-sm text-secondary mb-8">Enter your email and we'll send you a reset link.</p>
+      <form id="forgot-password-form" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-on-surface mb-1" for="reset-email">Email</label>
+          <input id="reset-email" type="email" autocomplete="email"
+            class="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" required />
+        </div>
+        <p id="forgot-password-error" class="text-sm text-error hidden"></p>
+        <p id="forgot-password-success" class="text-sm text-green-600 hidden"></p>
+        <button type="submit"
+          class="w-full py-2 rounded-lg bg-primary text-on-primary font-medium text-sm hover:opacity-90 transition-opacity">
+          Send reset link
+        </button>
+        <p class="text-center">
+          <button type="button" id="back-to-login-link" class="text-sm text-primary hover:underline">Back to sign in</button>
+        </p>
+      </form>
+    </div>
 
-  var _typewriterTimer = null;
-  function startTypewriter() {
-    if (_typewriterTimer) clearTimeout(_typewriterTimer);
-    var el = document.getElementById('home-greeting');
-    var cursor = document.querySelector('.typewriter-cursor');
-    var subtitle = document.getElementById('home-subtitle');
-    var text = getGreeting();
-    el.textContent = '';
-    subtitle.style.opacity = '0';
-    cursor.style.display = 'inline-block';
-    cursor.style.animation = 'blink-cursor 0.75s step-end infinite';
-    var i = 0;
-    function type() {
-      if (i < text.length) {
-        el.textContent += text[i];
-        i++;
-        _typewriterTimer = setTimeout(type, 55 + Math.random() * 35);
-      } else {
-        setTimeout(function() {
-          cursor.style.animation = 'none';
-          cursor.style.opacity = '0';
-          subtitle.style.opacity = '1';
-        }, 400);
-      }
-    }
-    _typewriterTimer = setTimeout(type, 450);
-  }
+    <!-- Set password form (invite / password reset) -->
+    <div id="set-password-panel" class="hidden">
+      <p class="text-sm text-secondary mb-8" id="set-password-subtitle">Set your password</p>
+      <form id="set-password-form" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-on-surface mb-1" for="new-password">New password</label>
+          <input id="new-password" type="password" autocomplete="new-password" minlength="8"
+            class="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" required />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-on-surface mb-1" for="confirm-password">Confirm password</label>
+          <input id="confirm-password" type="password" autocomplete="new-password" minlength="8"
+            class="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" required />
+        </div>
+        <p id="set-password-error" class="text-sm text-error hidden"></p>
+        <button type="submit"
+          class="w-full py-2 rounded-lg bg-primary text-on-primary font-medium text-sm hover:opacity-90 transition-opacity">
+          Set password
+        </button>
+      </form>
+    </div>
 
-  function showPage(pageId) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.getElementById(pageId).classList.add('active');
-    document.querySelectorAll('.nav-link').forEach(a => {
-      a.classList.remove('text-[#0058be]', 'bg-[#ffffff]/60', 'translate-x-1', 'shadow-sm');
-      a.classList.add('text-[#495e8a]');
-      a.querySelector('.material-symbols-outlined').style.fontVariationSettings = "'FILL' 0";
-    });
-    const active = document.querySelector('[data-page="' + pageId + '"]');
-    if (active) {
-      active.classList.add('text-[#0058be]', 'bg-[#ffffff]/60', 'translate-x-1', 'shadow-sm');
-      active.classList.remove('text-[#495e8a]');
-      active.querySelector('.material-symbols-outlined').style.fontVariationSettings = "'FILL' 1";
-    }
-    if (pageId === 'page-home') startTypewriter();
-  }
+  </div>
+</div>
 
-  function showClientDetail(id) {
-    document.getElementById('clients-grid').classList.add('hidden');
-    document.querySelectorAll('.client-detail').forEach(d => d.classList.add('hidden'));
-    document.getElementById(id).classList.remove('hidden');
-    window.scrollTo({top: 0, behavior: 'smooth'});
-  }
-  function closeClientDetail() {
-    document.querySelectorAll('.client-detail').forEach(d => d.classList.add('hidden'));
-    document.getElementById('clients-grid').classList.remove('hidden');
-    window.scrollTo({top: 0, behavior: 'smooth'});
-  }
-
-  function toggleSetting(btn) {
-    var on = btn.dataset.on === 'true';
-    btn.dataset.on = on ? 'false' : 'true';
-    btn.classList.toggle('bg-primary', !on);
-    btn.classList.toggle('bg-surface-container-high', on);
-    btn.querySelector('span').classList.toggle('translate-x-5', !on);
-  }
-
-  function selectTone(btn) {
-    document.querySelectorAll('.tone-btn').forEach(function(b) {
-      b.classList.remove('border-primary', 'bg-primary/10', 'text-primary');
-      b.classList.add('border-outline-variant/30', 'text-secondary');
-    });
-    btn.classList.add('border-primary', 'bg-primary/10', 'text-primary');
-    btn.classList.remove('border-outline-variant/30', 'text-secondary');
-  }
-
-  function setTheme(theme, btn) {
-    document.querySelectorAll('.theme-btn').forEach(function(b) {
-      b.classList.remove('border-primary', 'bg-primary/5');
-      b.classList.add('border-outline-variant/20');
-      b.querySelector('p').classList.remove('text-primary');
-      b.querySelector('p').classList.add('text-secondary');
-    });
-    btn.classList.add('border-primary', 'bg-primary/5');
-    btn.classList.remove('border-outline-variant/20');
-    btn.querySelector('p').classList.add('text-primary');
-    btn.querySelector('p').classList.remove('text-secondary');
-    document.documentElement.className = theme;
-  }
-
-  function updateName(val) {
-    if (!val.trim()) return;
-    _userName = val.trim();
-    document.getElementById('profile-display-name').textContent = _userName;
-  }
-</script>
 
 <!-- TopNavBar -->
 <header class="bg-[#fdf9f2]/70 backdrop-blur-xl flex items-center w-full px-4 md:px-8 py-4 max-w-full top-0 sticky z-[70] border-b border-outline-variant/10">
-<button onclick="toggleSidebar()" class="text-[#0058be] hover:text-[#004395] transition-all p-2 rounded-lg hover:bg-[#0058be]/10 flex-shrink-0 z-[80] relative">
+<button onclick="toggleSidebar()" class="hidden md:flex text-[#0058be] hover:text-[#004395] transition-all p-2 rounded-lg hover:bg-[#0058be]/10 flex-shrink-0 z-[80] relative">
 <span class="material-symbols-outlined text-2xl">menu</span>
+</button>
+<button onclick="openNewClientModal()" class="md:hidden flex items-center gap-1.5 bg-primary text-white py-2 px-3 rounded-lg font-bold text-xs hover:opacity-90 transition-all flex-shrink-0">
+<span class="material-symbols-outlined text-base">add</span>New Entry
 </button>
 <svg width="0" height="0" style="position:absolute">
   <defs>
@@ -251,16 +170,17 @@
   </defs>
 </svg>
 <button onclick="showPage('page-home')" class="flex-shrink-0 ml-2 cursor-pointer transition-all duration-150 hover:-translate-y-0.5 hover:drop-shadow-md active:translate-y-0 active:drop-shadow-none" title="Home">
-  <img id="header-logo" alt="ATTRA Logo" class="h-8 w-auto" style="filter: url(#remove-white);" src="https://lh3.googleusercontent.com/aida/ADBb0uhbtUFYDFJYMNEsHSR0MFU1kRwt9whbE3350HcQy58VNNR9rgs0wwRyyXOzIX0PTP7UJ2stWQNAcwVkPv-f_ufCVN7yF05RyzlK8PuH57PaVl1iGaWJJuktNOBtnagOcd2QGzVg1jP6AP9jQDal3KPTohxwxffdrKZRQx7WcIqhsqiFQE3Ramai3UUQys-sCrIyMXBnWQ0t8KZ9FDEalXfg186FE4MUVGdP4XgBp__rw7efEVfjodRb1SBg0Ww1u8DFY1v27g9_x6c"/>
+  <img id="header-logo" alt="ATTRA Logo" class="h-8 w-auto" style="filter: url(#remove-white);" src="attra_logo.png"/>
 </button>
-<div id="search-wrapper" class="flex-1 flex justify-center md:pl-[240px]">
+<div id="search-wrapper" class="flex-1 hidden sm:flex justify-center md:pl-[240px]">
 <div class="relative w-full max-w-xl">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm">search</span>
-<input id="main-search" class="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-primary/40 w-full" type="text" autocomplete="off"/>
+<input id="main-search" class="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-primary/40 w-full" type="text" autocomplete="off" oninput="onSearchInput(this.value)" onkeydown="onSearchKeydown(event)" onfocus="onSearchInput(this.value)"/>
 <div id="search-ph-wrap" class="absolute inset-0 left-10 right-4 flex items-center pointer-events-none select-none">
 <span id="ph-a" class="text-sm text-outline absolute"></span>
 <span id="ph-b" class="text-sm text-outline absolute" style="opacity:0;"></span>
 </div>
+<div id="search-results" class="hidden absolute top-full mt-2 left-0 right-0 bg-surface rounded-2xl shadow-xl border border-outline-variant/20 overflow-hidden z-[90] max-h-96 overflow-y-auto"></div>
 </div>
 </div>
 <div class="flex items-center flex-shrink-0">
@@ -272,12 +192,12 @@
 
 <main class="flex flex-col md:flex-row min-h-[calc(100vh-72px)] bg-surface">
 <!-- SideNavBar -->
-<aside id="sidebar" class="bg-[#f7f3ed] h-screen w-64 fixed left-0 top-0 hidden md:flex flex-col gap-6 p-6 z-[60]">
+<aside id="sidebar" class="bg-[#f7f3ed] h-[calc(100vh-4rem)] w-64 fixed left-0 top-16 hidden md:flex flex-col gap-6 p-6 z-[60] overflow-y-auto">
 <div class="mb-4">
-<img alt="ATTRA Logo" class="h-10 w-auto object-contain mix-blend-multiply" src="https://lh3.googleusercontent.com/aida/ADBb0uhbtUFYDFJYMNEsHSR0MFU1kRwt9whbE3350HcQy58VNNR9rgs0wwRyyXOzIX0PTP7UJ2stWQNAcwVkPv-f_ufCVN7yF05RyzlK8PuH57PaVl1iGaWJJuktNOBtnagOcd2QGzVg1jP6AP9jQDal3KPTohxwxffdrKZRQx7WcIqhsqiFQE3Ramai3UUQys-sCrIyMXBnWQ0t8KZ9FDEalXfg186FE4MUVGdP4XgBp__rw7efEVfjodRb1SBg0Ww1u8DFY1v27g9_x6c"/>
+<img alt="ATTRA Logo" class="h-10 w-auto object-contain mix-blend-multiply" src="attra_logo.png"/>
 <p class="font-sans text-[10px] mt-2 uppercase tracking-[0.2em] text-secondary font-bold">The Digital Curator</p>
 </div>
-<button class="bg-primary text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2 font-bold hover:opacity-90 transition-all mb-4 text-sm">
+<button onclick="openNewClientModal()" class="bg-primary text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2 font-bold hover:opacity-90 transition-all mb-4 text-sm">
 <span class="material-symbols-outlined text-lg">add</span>
             New Entry
 </button>
@@ -317,7 +237,7 @@
 </aside>
 
 <!-- Main Content -->
-<section id="main-content" class="flex-1 md:ml-64 p-6 md:p-12 w-full">
+<section id="main-content" class="flex-1 md:ml-64 p-6 md:p-12 pb-28 md:pb-12 w-full">
 
 <!-- PAGE: Home -->
 <div id="page-home" class="page active">
@@ -335,22 +255,18 @@ Here's your situation at a glance.
 </header>
 
 <!-- Stats row -->
-<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-12">
+<div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-12">
 <div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
 <p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-1">Total Clients</p>
-<p class="serif-display text-4xl font-bold text-on-surface">24</p>
+<p id="stat-home-total" class="serif-display text-4xl font-bold text-on-surface">—</p>
 </div>
 <div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
-<p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-1">Pending Actions</p>
-<p class="serif-display text-4xl font-bold text-primary">7</p>
+<p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-1">Active</p>
+<p id="stat-home-active" class="serif-display text-4xl font-bold text-primary">—</p>
 </div>
 <div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
-<p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-1">Awaiting Approval</p>
-<p class="serif-display text-4xl font-bold text-tertiary">2</p>
-</div>
-<div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
-<p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-1">New This Month</p>
-<p class="serif-display text-4xl font-bold text-green-700">3</p>
+<p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-1">Updated This Month</p>
+<p id="stat-home-month" class="serif-display text-4xl font-bold text-green-700">—</p>
 </div>
 </div>
 
@@ -363,129 +279,19 @@ Here's your situation at a glance.
 <!-- Today's Priorities -->
 <div>
 <div class="flex items-center gap-3 mb-6">
-<h3 class="serif-display text-2xl italic font-medium">Today's Priorities</h3>
+<h3 class="serif-display text-2xl italic font-medium">Pinned Clients</h3>
 <div class="h-px flex-1 bg-outline-variant/20"></div>
-<span class="bg-error/10 text-error px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase">3 Urgent</span>
 </div>
-<div class="space-y-4">
-<!-- Elena - due today -->
-<div class="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 border-l-4 border-l-error/50 flex items-center gap-5 hover:shadow-md transition-all">
-<div class="w-10 h-10 rounded-full bg-surface-container overflow-hidden border border-outline-variant/20 flex-shrink-0">
-<img alt="Elena Vance" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuACEAddZZqxG_-APSZTKsfn8_4_qfPPwdoUsP1DfDpwLRqLpqFkaXI2MrcLkhf6xeS1N3tFJYx7dizxxBzUQ5Aq9PQ6Rn2c5fiCIQEesGjRrcHU9NgHBUHVKX7ye_Zs4l-uwVlfrItbMm2tMhnWuZ-TSlQ0M8VKcqn3yXTZ1l4_LD-zR57m4eDUxtz5W_ZfVn28j1hCEZY0SU9hKsw13u893FPVyvbCNe_KlE8d0e3sn4v8H7ty2rbw7KJDD2nur8-vQcqMMzCahhx0"/>
-</div>
-<div class="flex-1 min-w-0">
-<div class="flex items-center gap-2 mb-0.5">
-<p class="font-bold text-on-surface text-sm">Elena Vance</p>
-<span class="text-[10px] font-bold uppercase tracking-widest bg-error/10 text-error px-2 py-0.5 rounded-md">Due Today</span>
-</div>
-<p class="text-sm text-secondary truncate">Share interior design references from consultation</p>
-</div>
-<button onclick="showPage('page-inbox')" class="flex-shrink-0 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:opacity-90 transition-all flex items-center gap-1.5">
-<span class="material-symbols-outlined text-sm">send</span> Act
-</button>
-</div>
-<!-- 2 messages awaiting approval -->
-<div class="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 border-l-4 border-l-primary/40 flex items-center gap-5 hover:shadow-md transition-all">
-<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-<span class="material-symbols-outlined text-primary text-xl" style="font-variation-settings: 'FILL' 1;">mark_email_unread</span>
-</div>
-<div class="flex-1 min-w-0">
-<div class="flex items-center gap-2 mb-0.5">
-<p class="font-bold text-on-surface text-sm">2 Messages Awaiting</p>
-<span class="text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-2 py-0.5 rounded-md">AI-Drafted</span>
-</div>
-<p class="text-sm text-secondary">Mikko Rantanen · Elena Vance — ready to send</p>
-</div>
-<button onclick="showPage('page-inbox')" class="flex-shrink-0 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:opacity-90 transition-all flex items-center gap-1.5">
-<span class="material-symbols-outlined text-sm">inbox</span> Review
-</button>
-</div>
-<!-- Mikko - due tomorrow -->
-<div class="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 border-l-4 border-l-secondary/30 flex items-center gap-5 hover:shadow-md transition-all">
-<div class="w-10 h-10 rounded-full bg-surface-container overflow-hidden border border-outline-variant/20 flex-shrink-0">
-<img alt="Mikko Rantanen" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCmX_4P9xC4WsU3aToNMLRdTxynEeWg7ahN4O9TrL6BupqxBALCnc90SYAd4M5lo-Hi4NrTwf5ClCAxpwAav7qT_POBlhV0-KmcVW-arT4Mav6zvWuieVlZq2A0qOpPPUICof_vfdzW5n-m6ZPIx-Z1Dwr0X7nnkAUZASZ02SiI0w-I8_wQr08gIxrf9pG0ceKWf1_5XcNEqfbGXFCfpR9Wki8DzkLn7owzmnOKfnimspOEMrHWHO32eDkGaUOMRQlX80DXqPR8GAzY"/>
-</div>
-<div class="flex-1 min-w-0">
-<div class="flex items-center gap-2 mb-0.5">
-<p class="font-bold text-on-surface text-sm">Mikko Rantanen</p>
-<span class="text-[10px] font-bold uppercase tracking-widest bg-secondary-fixed text-on-secondary-fixed-variant px-2 py-0.5 rounded-md">Due Tomorrow</span>
-</div>
-<p class="text-sm text-secondary truncate">Send summer cleaning quote — window & exterior package</p>
-</div>
-<button onclick="showPage('page-dashboard')" class="flex-shrink-0 border border-outline-variant text-on-surface px-4 py-2 rounded-xl text-xs font-bold hover:bg-surface-container-low transition-all flex items-center gap-1.5">
-<span class="material-symbols-outlined text-sm">arrow_forward</span> View
-</button>
-</div>
-<!-- James - due in 2 days -->
-<div class="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 border-l-4 border-l-outline-variant/30 flex items-center gap-5 hover:shadow-md transition-all">
-<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-<span class="text-primary font-bold text-sm">JL</span>
-</div>
-<div class="flex-1 min-w-0">
-<div class="flex items-center gap-2 mb-0.5">
-<p class="font-bold text-on-surface text-sm">James Lindqvist</p>
-<span class="text-[10px] font-bold uppercase tracking-widest bg-surface-container-high text-secondary px-2 py-0.5 rounded-md">In 2 Days</span>
-</div>
-<p class="text-sm text-secondary truncate">Confirm north garden landscaping quote</p>
-</div>
-<button onclick="showPage('page-dashboard')" class="flex-shrink-0 border border-outline-variant text-on-surface px-4 py-2 rounded-xl text-xs font-bold hover:bg-surface-container-low transition-all flex items-center gap-1.5">
-<span class="material-symbols-outlined text-sm">arrow_forward</span> View
-</button>
-</div>
-</div>
+<div id="home-priorities-list" class="space-y-4"></div>
 </div>
 
 <!-- Activity Timeline -->
 <div>
 <div class="flex items-center gap-3 mb-6">
-<h3 class="serif-display text-2xl italic font-medium">Recent Activity</h3>
+<h3 class="serif-display text-2xl italic font-medium">Action Required</h3>
 <div class="h-px flex-1 bg-outline-variant/20"></div>
 </div>
-<div>
-<div class="flex gap-5">
-<div class="flex flex-col items-center flex-shrink-0">
-<div class="w-2.5 h-2.5 rounded-full bg-primary mt-1.5"></div>
-<div class="w-px flex-1 bg-outline-variant/30 mt-1 min-h-[2.5rem]"></div>
-</div>
-<div class="pb-7">
-<p class="text-[10px] text-secondary uppercase tracking-widest font-bold mb-0.5">Just now</p>
-<p class="text-sm font-medium text-on-surface">AI drafted follow-up for <span class="text-primary font-bold">Mikko Rantanen</span></p>
-<p class="text-xs text-secondary mt-0.5">Summer window cleaning — awaiting your approval</p>
-</div>
-</div>
-<div class="flex gap-5">
-<div class="flex flex-col items-center flex-shrink-0">
-<div class="w-2.5 h-2.5 rounded-full bg-tertiary mt-1.5"></div>
-<div class="w-px flex-1 bg-outline-variant/30 mt-1 min-h-[2.5rem]"></div>
-</div>
-<div class="pb-7">
-<p class="text-[10px] text-secondary uppercase tracking-widest font-bold mb-0.5">2h ago</p>
-<p class="text-sm font-medium text-on-surface">New lead added — <span class="text-primary font-bold">Elena Vance</span></p>
-<p class="text-xs text-secondary mt-0.5">Interior design · First consultation complete</p>
-</div>
-</div>
-<div class="flex gap-5">
-<div class="flex flex-col items-center flex-shrink-0">
-<div class="w-2.5 h-2.5 rounded-full bg-green-500 mt-1.5"></div>
-<div class="w-px flex-1 bg-outline-variant/30 mt-1 min-h-[2.5rem]"></div>
-</div>
-<div class="pb-7">
-<p class="text-[10px] text-secondary uppercase tracking-widest font-bold mb-0.5">Yesterday</p>
-<p class="text-sm font-medium text-on-surface">Deal closed — <span class="text-primary font-bold">Anna Korhonen</span></p>
-<p class="text-xs text-secondary mt-0.5">Kitchen & bathroom remodel · €15,800 secured</p>
-</div>
-</div>
-<div class="flex gap-5">
-<div class="flex flex-col items-center flex-shrink-0">
-<div class="w-2.5 h-2.5 rounded-full bg-outline-variant mt-1.5"></div>
-</div>
-<div class="pb-2">
-<p class="text-[10px] text-secondary uppercase tracking-widest font-bold mb-0.5">3 days ago</p>
-<p class="text-sm font-medium text-on-surface">Last contact — <span class="text-primary font-bold">Sofia Andersson</span></p>
-<p class="text-xs text-secondary mt-0.5">Full property care · No pending actions</p>
-</div>
-</div>
-</div>
+<div id="home-activity-list"></div>
 </div>
 
 </div>
@@ -497,65 +303,13 @@ Here's your situation at a glance.
 <div class="bg-primary/5 p-6 rounded-2xl border border-primary/10">
 <div class="flex items-center gap-2.5 mb-4">
 <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-<p class="text-[10px] uppercase tracking-[0.2em] font-bold text-primary">ATTRA AI · On it</p>
+<p class="text-[10px] uppercase tracking-[0.2em] font-bold text-primary">ATTRA AI · Ready</p>
 </div>
-<p class="serif-display text-xl italic font-medium text-on-surface mb-2">ATTRA AI is working.</p>
-<p class="text-sm text-secondary leading-relaxed">Already drafted 2 messages for you. Go approve them and take the credit. ✦</p>
+<p class="serif-display text-xl italic font-medium text-on-surface mb-2">Your concierge is standing by.</p>
+<p class="text-sm text-secondary leading-relaxed">Open the Magic Inbox to review AI-drafted messages for your clients.</p>
 <button onclick="showPage('page-inbox')" class="mt-5 w-full bg-primary text-white py-3 px-4 rounded-xl text-xs font-bold hover:opacity-90 transition-all flex items-center justify-center gap-2">
 <span class="material-symbols-outlined text-sm">inbox</span> Open Magic Inbox
 </button>
-</div>
-
-<!-- Pipeline snapshot -->
-<div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
-<h3 class="serif-display text-xl font-bold mb-5">Pipeline</h3>
-<div class="space-y-4">
-<div>
-<div class="flex items-center justify-between mb-1.5">
-<span class="text-sm font-medium text-on-surface">Vibe Check</span>
-<span class="serif-display text-sm font-bold text-primary">€14,700</span>
-</div>
-<div class="w-full bg-surface-container-high rounded-full h-1.5">
-<div class="bg-primary h-1.5 rounded-full" style="width:35%"></div>
-</div>
-</div>
-<div>
-<div class="flex items-center justify-between mb-1.5">
-<span class="text-sm font-medium text-on-surface">Proposal</span>
-<span class="serif-display text-sm font-bold text-tertiary">€30,000</span>
-</div>
-<div class="w-full bg-surface-container-high rounded-full h-1.5">
-<div class="bg-tertiary h-1.5 rounded-full" style="width:62%"></div>
-</div>
-</div>
-<div>
-<div class="flex items-center justify-between mb-1.5">
-<span class="text-sm font-medium text-on-surface">Closed</span>
-<span class="serif-display text-sm font-bold text-green-700">€47,800</span>
-</div>
-<div class="w-full bg-surface-container-high rounded-full h-1.5">
-<div class="bg-green-500 h-1.5 rounded-full" style="width:88%"></div>
-</div>
-</div>
-</div>
-<button onclick="showPage('page-dealflow')" class="mt-6 w-full py-2.5 border border-outline-variant rounded-xl text-[10px] font-bold text-secondary uppercase tracking-[0.15em] hover:bg-surface-container-low transition-all">
-View Full Pipeline →
-</button>
-</div>
-
-<!-- Reminders -->
-<div class="bg-surface-container-high/40 p-6 rounded-2xl border border-white/40 backdrop-blur-sm">
-<h3 class="serif-display text-xl font-bold mb-4">Reminders</h3>
-<div class="space-y-3">
-<div class="flex gap-3 items-start p-3 bg-white/60 rounded-xl hover:bg-white transition-all cursor-pointer shadow-sm">
-<span class="material-symbols-outlined text-primary text-sm mt-0.5">notification_important</span>
-<p class="text-xs leading-relaxed font-medium">Ask Mikko about specific measurements tomorrow.</p>
-</div>
-<div class="flex gap-3 items-start p-3 bg-white/60 rounded-xl hover:bg-white transition-all cursor-pointer shadow-sm">
-<span class="material-symbols-outlined text-primary text-sm mt-0.5">schedule</span>
-<p class="text-xs leading-relaxed font-medium">Call landscaping team regarding the north garden quote.</p>
-</div>
-</div>
 </div>
 
 </div>
@@ -578,87 +332,9 @@ View Full Pipeline →
 <div class="lg:col-span-8 space-y-8">
 <div class="flex items-center justify-between mb-4">
 <h3 class="serif-display text-2xl italic font-medium">Pending Approvals</h3>
-<span class="bg-secondary-fixed text-on-secondary-fixed-variant px-4 py-1.5 rounded-full text-xs font-bold tracking-wider">2 MESSAGES</span>
 </div>
-<!-- Card 1 -->
-<div class="bg-surface-container-lowest p-8 md:p-10 rounded-2xl shadow-[0_20px_50px_rgba(28,28,24,0.03)] border border-outline-variant/10 group transition-all hover:shadow-[0_30px_60px_rgba(28,28,24,0.06)]">
-<div class="flex justify-between items-start mb-8">
-<div class="flex items-center gap-5">
-<div class="w-14 h-14 rounded-full bg-surface-container flex items-center justify-center overflow-hidden border border-outline-variant/20">
-<img alt="Client Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCmX_4P9xC4WsU3aToNMLRdTxynEeWg7ahN4O9TrL6BupqxBALCnc90SYAd4M5lo-Hi4NrTwf5ClCAxpwAav7qT_POBlhV0-KmcVW-arT4Mav6zvWuieVlZq2A0qOpPPUICof_vfdzW5n-m6ZPIx-Z1Dwr0X7nnkAUZASZ02SiI0w-I8_wQr08gIxrf9pG0ceKWf1_5XcNEqfbGXFCfpR9Wki8DzkLn7owzmnOKfnimspOEMrHWHO32eDkGaUOMRQlX80DXqPR8GAzY"/>
-</div>
-<div>
-<h4 class="font-bold text-xl text-on-surface">Mikko Rantanen</h4>
-<p class="text-xs text-secondary uppercase tracking-[0.1em] font-medium">Client since 2022</p>
-</div>
-</div>
-<span class="text-[10px] font-bold text-primary px-3 py-1.5 bg-primary/10 rounded-lg uppercase tracking-widest">AI-Drafted</span>
-</div>
-<div class="bg-surface-container-low p-8 rounded-xl mb-10 relative">
-<span class="material-symbols-outlined absolute -top-4 -left-3 text-primary/10 text-6xl" style="font-variation-settings: 'FILL' 1;">format_quote</span>
-<p class="serif-display text-2xl md:text-3xl leading-relaxed text-on-surface relative z-10 italic">"Hey Mikko! Should i reserve you a window cleaning before the summer."</p>
-</div>
-<div class="flex flex-wrap gap-4">
-<button class="flex-1 bg-primary text-white py-4 px-8 rounded-xl font-bold hover:shadow-xl hover:scale-[1.01] transition-all flex items-center justify-center gap-3">
-<span class="material-symbols-outlined text-lg">check_circle</span> Approve Message
-</button>
-<button class="flex-1 bg-white border border-outline-variant text-on-surface py-4 px-8 rounded-xl font-bold hover:bg-surface-container-low transition-all flex items-center justify-center gap-3">
-<span class="material-symbols-outlined text-lg">edit_note</span> Edit Draft
-</button>
-</div>
-</div>
-<!-- Card 2 -->
-<div class="bg-surface-container-lowest p-8 md:p-10 rounded-2xl shadow-[0_20px_50px_rgba(28,28,24,0.03)] border border-outline-variant/10 group transition-all hover:shadow-[0_30px_60px_rgba(28,28,24,0.06)]">
-<div class="flex justify-between items-start mb-8">
-<div class="flex items-center gap-5">
-<div class="w-14 h-14 rounded-full bg-surface-container flex items-center justify-center overflow-hidden border border-outline-variant/20">
-<img alt="Client Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuACEAddZZqxG_-APSZTKsfn8_4_qfPPwdoUsP1DfDpwLRqLpqFkaXI2MrcLkhf6xeS1N3tFJYx7dizxxBzUQ5Aq9PQ6Rn2c5fiCIQEesGjRrcHU9NgHBUHVKX7ye_Zs4l-uwVlfrItbMm2tMhnWuZ-TSlQ0M8VKcqn3yXTZ1l4_LD-zR57m4eDUxtz5W_ZfVn28j1hCEZY0SU9hKsw13u893FPVyvbCNe_KlE8d0e3sn4v8H7ty2rbw7KJDD2nur8-vQcqMMzCahhx0"/>
-</div>
-<div>
-<h4 class="font-bold text-xl text-on-surface">Elena Vance</h4>
-<p class="text-xs text-secondary uppercase tracking-[0.1em] font-medium">New Lead</p>
-</div>
-</div>
-<span class="text-[10px] font-bold text-primary px-3 py-1.5 bg-primary/10 rounded-lg uppercase tracking-widest">Follow-up</span>
-</div>
-<div class="bg-surface-container-low p-8 rounded-xl mb-10 relative">
-<span class="material-symbols-outlined absolute -top-4 -left-3 text-primary/10 text-6xl" style="font-variation-settings: 'FILL' 1;">format_quote</span>
-<p class="serif-display text-2xl md:text-3xl leading-relaxed text-on-surface relative z-10 italic">"It was great meeting you today, Elena. I've compiled the interior design references we discussed—would you like to review them tomorrow morning?"</p>
-</div>
-<div class="flex flex-wrap gap-4">
-<button class="flex-1 bg-primary text-white py-4 px-8 rounded-xl font-bold hover:shadow-xl hover:scale-[1.01] transition-all flex items-center justify-center gap-3">
-<span class="material-symbols-outlined text-lg">check_circle</span> Approve Message
-</button>
-<button class="flex-1 bg-white border border-outline-variant text-on-surface py-4 px-8 rounded-xl font-bold hover:bg-surface-container-low transition-all flex items-center justify-center gap-3">
-<span class="material-symbols-outlined text-lg">edit_note</span> Edit Draft
-</button>
-</div>
-</div>
-</div>
-<!-- Sidebar -->
-<div class="lg:col-span-4 space-y-10">
-<div class="bg-surface-container-high/40 p-8 rounded-2xl border border-white/40 backdrop-blur-sm">
-<h3 class="serif-display text-2xl font-bold mb-6">Simple Reminders</h3>
-<div class="space-y-5">
-<div class="flex gap-4 items-start p-4 bg-white/60 rounded-xl hover:bg-white transition-all cursor-pointer shadow-sm">
-<span class="material-symbols-outlined text-primary mt-0.5">notification_important</span>
-<p class="text-sm leading-relaxed font-medium">Remind me to ask about the specific measurements tomorrow.</p>
-</div>
-<div class="flex gap-4 items-start p-4 bg-white/60 rounded-xl hover:bg-white transition-all cursor-pointer shadow-sm">
-<span class="material-symbols-outlined text-primary mt-0.5">schedule</span>
-<p class="text-sm leading-relaxed font-medium">Call the landscaping team regarding the north garden quote.</p>
-</div>
-<button class="w-full py-3 border-2 border-dashed border-outline-variant rounded-xl text-[10px] font-bold text-secondary uppercase tracking-[0.2em] hover:bg-white/40 transition-all mt-4">+ Add New Reminder</button>
-</div>
-</div>
-<div class="relative overflow-hidden rounded-2xl aspect-[4/5] group shadow-2xl">
-<img alt="Editorial placeholder" class="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFgSunxe97U2XokSAO1tY95z8jmjx_CkEV986L1DfOoB6l4AmKyn3nPlx40lvKTu9KVUM1B6pRBeHFVpsZxQaCrJGf2qqPRjP_Swd7D8RnqNQ7wvfVM54zM3FcQdG8LMZOiE0qXmvG9trtYzD-SgUd4U1D4MAN-iMXOKjb4ga4HL1ooL7N1GWYLCYoy6tc2YyHnJB0kAods4E3CkifoF6yW1XhZml9X1sYZHz2btxD6grmUloPIE6oJmaIuK5DhhpQEBtFtI1ziP51"/>
-<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
-<div class="absolute bottom-0 left-0 p-8 text-white">
-<p class="text-[10px] uppercase tracking-[0.3em] font-bold opacity-70 mb-2">Curator Tip</p>
-<h4 class="serif-display text-2xl italic mb-6 leading-tight">Personalization leads to 40% higher conversion.</h4>
-<a class="inline-flex items-center gap-2 text-xs font-bold border-b border-white/40 hover:border-white transition-all pb-1" href="#">Read Curator Notes <span class="material-symbols-outlined text-sm">arrow_forward</span></a>
-</div>
+<div id="inbox-pending-list" class="space-y-8">
+<p class="text-sm text-secondary p-6 rounded-2xl border border-outline-variant/20 bg-surface-container-low">No drafted messages yet. AI-drafted follow-ups will appear here once the ingestion pipeline processes new conversations.</p>
 </div>
 </div>
 </div>
@@ -677,61 +353,39 @@ View Full Pipeline →
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
 <div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
 <p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-1">Total Clients</p>
-<p class="serif-display text-4xl font-bold text-on-surface">24</p>
+<p id="stat-dash-total" class="serif-display text-4xl font-bold text-on-surface">—</p>
 </div>
 <div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
-<p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-1">Pending Actions</p>
-<p class="serif-display text-4xl font-bold text-primary">7</p>
+<p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-1">Active</p>
+<p id="stat-dash-active" class="serif-display text-4xl font-bold text-primary">—</p>
 </div>
 <div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
-<p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-1">New This Month</p>
-<p class="serif-display text-4xl font-bold text-green-700">3</p>
+<p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-1">Updated This Month</p>
+<p id="stat-dash-month" class="serif-display text-4xl font-bold text-green-700">—</p>
 </div>
 </div>
+<div class="flex items-center justify-end mb-4">
+<div class="flex items-center gap-1 bg-surface-container-low rounded-xl p-1">
+<button id="dash-view-grid" class="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-container-lowest shadow-sm text-primary transition-all" title="Grid view">
+<span class="material-symbols-outlined text-lg">grid_view</span>
+</button>
+<button id="dash-view-list" class="flex items-center justify-center w-8 h-8 rounded-lg text-secondary transition-all" title="List view">
+<span class="material-symbols-outlined text-lg">view_list</span>
+</button>
+</div>
+</div>
+<div id="dashboard-list-wrap" style="display:none">
 <div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/10 shadow-[0_20px_50px_rgba(28,28,24,0.03)] overflow-hidden">
-<div class="grid grid-cols-12 gap-4 px-8 py-5 border-b border-outline-variant/15 bg-surface-container-low/50">
+<div class="hidden md:grid grid-cols-12 gap-4 px-8 py-5 border-b border-outline-variant/15 bg-surface-container-low/50">
 <div class="col-span-4"><span class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary">Name</span></div>
 <div class="col-span-4"><span class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary">Customer Profile</span></div>
 <div class="col-span-4"><span class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary">Next Action</span></div>
 </div>
 <div id="dashboard-crm-rows">
-<div class="crm-row grid grid-cols-12 gap-4 px-8 py-5 border-b border-outline-variant/10 items-center">
-<div class="col-span-4 flex items-center gap-4">
-<div class="w-10 h-10 rounded-full bg-surface-container overflow-hidden border border-outline-variant/20 flex-shrink-0"><img alt="Mikko Rantanen" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCmX_4P9xC4WsU3aToNMLRdTxynEeWg7ahN4O9TrL6BupqxBALCnc90SYAd4M5lo-Hi4NrTwf5ClCAxpwAav7qT_POBlhV0-KmcVW-arT4Mav6zvWuieVlZq2A0qOpPPUICof_vfdzW5n-m6ZPIx-Z1Dwr0X7nnkAUZASZ02SiI0w-I8_wQr08gIxrf9pG0ceKWf1_5XcNEqfbGXFCfpR9Wki8DzkLn7owzmnOKfnimspOEMrHWHO32eDkGaUOMRQlX80DXqPR8GAzY"/></div>
-<div class="min-w-0 flex-1"><p class="font-bold text-on-surface text-sm truncate">Mikko Rantanen</p><div class="flex items-center gap-2 mt-1"><svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg><svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="#0058be"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg></div></div>
-</div>
-<div class="col-span-4"><span class="inline-block text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-3 py-1 rounded-lg mb-1">Loyal Client</span><p class="text-sm text-secondary leading-relaxed">Residential · Since 2022 · Window & exterior</p></div>
-<div class="col-span-4"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">schedule_send</span><p class="text-sm font-medium text-on-surface">Send summer cleaning quote</p></div><p class="text-xs text-secondary mt-1 ml-7">Due tomorrow</p></div>
-</div>
-<div class="crm-row grid grid-cols-12 gap-4 px-8 py-5 border-b border-outline-variant/10 items-center">
-<div class="col-span-4 flex items-center gap-4">
-<div class="w-10 h-10 rounded-full bg-surface-container overflow-hidden border border-outline-variant/20 flex-shrink-0"><img alt="Elena Vance" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuACEAddZZqxG_-APSZTKsfn8_4_qfPPwdoUsP1DfDpwLRqLpqFkaXI2MrcLkhf6xeS1N3tFJYx7dizxxBzUQ5Aq9PQ6Rn2c5fiCIQEesGjRrcHU9NgHBUHVKX7ye_Zs4l-uwVlfrItbMm2tMhnWuZ-TSlQ0M8VKcqn3yXTZ1l4_LD-zR57m4eDUxtz5W_ZfVn28j1hCEZY0SU9hKsw13u893FPVyvbCNe_KlE8d0e3sn4v8H7ty2rbw7KJDD2nur8-vQcqMMzCahhx0"/></div>
-<div class="min-w-0 flex-1"><p class="font-bold text-on-surface text-sm truncate">Elena Vance</p><div class="flex items-center gap-2 mt-1"><svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg><svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="#0058be"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg></div></div>
-</div>
-<div class="col-span-4"><span class="inline-block text-[10px] font-bold uppercase tracking-widest bg-tertiary-fixed text-on-tertiary-fixed-variant px-3 py-1 rounded-lg mb-1">New Lead</span><p class="text-sm text-secondary leading-relaxed">Interior design · First consultation done</p></div>
-<div class="col-span-4"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">send</span><p class="text-sm font-medium text-on-surface">Share design references</p></div><p class="text-xs text-secondary mt-1 ml-7">Due today</p></div>
-</div>
-<div class="crm-row grid grid-cols-12 gap-4 px-8 py-5 border-b border-outline-variant/10 items-center">
-<div class="col-span-4 flex items-center gap-4"><div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span class="text-primary font-bold text-sm">JL</span></div><div class="min-w-0 flex-1"><p class="font-bold text-on-surface text-sm truncate">James Lindqvist</p><div class="flex items-center gap-2 mt-1"><svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg><svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="#0058be"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg></div></div></div>
-<div class="col-span-4"><span class="inline-block text-[10px] font-bold uppercase tracking-widest bg-secondary-fixed text-on-secondary-fixed-variant px-3 py-1 rounded-lg mb-1">Active</span><p class="text-sm text-secondary leading-relaxed">Commercial · Landscaping & maintenance</p></div>
-<div class="col-span-4"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">call</span><p class="text-sm font-medium text-on-surface">Confirm north garden quote</p></div><p class="text-xs text-secondary mt-1 ml-7">Due in 2 days</p></div>
-</div>
-<div class="crm-row grid grid-cols-12 gap-4 px-8 py-5 border-b border-outline-variant/10 items-center">
-<div class="col-span-4 flex items-center gap-4"><div class="w-10 h-10 rounded-full bg-tertiary/10 flex items-center justify-center flex-shrink-0"><span class="text-tertiary font-bold text-sm">SA</span></div><div class="min-w-0 flex-1"><p class="font-bold text-on-surface text-sm truncate">Sofia Andersson</p><div class="flex items-center gap-2 mt-1"><svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg><svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="#0058be"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg></div></div></div>
-<div class="col-span-4"><span class="inline-block text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-3 py-1 rounded-lg mb-1">Loyal Client</span><p class="text-sm text-secondary leading-relaxed">Residential · Full property care since 2021</p></div>
-<div class="col-span-4"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-green-600 text-lg">check_circle</span><p class="text-sm font-medium text-secondary">No pending actions</p></div><p class="text-xs text-secondary mt-1 ml-7">Last contact 3 days ago</p></div>
-</div>
-<div class="crm-row grid grid-cols-12 gap-4 px-8 py-5 border-b border-outline-variant/10 items-center">
-<div class="col-span-4 flex items-center gap-4"><div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center flex-shrink-0"><span class="text-secondary font-bold text-sm">TN</span></div><div class="min-w-0 flex-1"><p class="font-bold text-on-surface text-sm truncate">Tommi Nurmi</p><div class="flex items-center gap-2 mt-1"><svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg><svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="#0058be"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg></div></div></div>
-<div class="col-span-4"><span class="inline-block text-[10px] font-bold uppercase tracking-widest bg-tertiary-fixed text-on-tertiary-fixed-variant px-3 py-1 rounded-lg mb-1">New Lead</span><p class="text-sm text-secondary leading-relaxed">Commercial · Office space renovation inquiry</p></div>
-<div class="col-span-4"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">event</span><p class="text-sm font-medium text-on-surface">Schedule site visit</p></div><p class="text-xs text-secondary mt-1 ml-7">Due this week</p></div>
-</div>
-<div class="crm-row grid grid-cols-12 gap-4 px-8 py-5 items-center">
-<div class="col-span-4 flex items-center gap-4"><div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span class="text-primary font-bold text-sm">AK</span></div><div class="min-w-0 flex-1"><p class="font-bold text-on-surface text-sm truncate">Anna Korhonen</p><div class="flex items-center gap-2 mt-1"><svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg><svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="#0058be"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg></div></div></div>
-<div class="col-span-4"><span class="inline-block text-[10px] font-bold uppercase tracking-widest bg-secondary-fixed text-on-secondary-fixed-variant px-3 py-1 rounded-lg mb-1">Active</span><p class="text-sm text-secondary leading-relaxed">Residential · Kitchen & bathroom remodel</p></div>
-<div class="col-span-4"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-lg">description</span><p class="text-sm font-medium text-on-surface">Send revised proposal</p></div><p class="text-xs text-secondary mt-1 ml-7">Due in 3 days</p></div>
 </div>
 </div>
+</div>
+<div id="dashboard-grid-rows" style="display:grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 </div>
 </div>
 
@@ -743,33 +397,17 @@ View Full Pipeline →
 <p class="text-secondary mt-6 max-w-2xl text-lg leading-relaxed font-light">Full client profiles with service history, invoices, and interaction summaries.</p>
 </header>
 <div id="clients-grid" class="flex flex-col gap-4">
-<div onclick="showClientDetail('client-mikko')" class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer text-center group"><div class="w-20 h-20 rounded-full bg-surface-container overflow-hidden border-2 border-outline-variant/20 mx-auto mb-4 group-hover:border-primary/40 transition-all"><img alt="Mikko Rantanen" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCmX_4P9xC4WsU3aToNMLRdTxynEeWg7ahN4O9TrL6BupqxBALCnc90SYAd4M5lo-Hi4NrTwf5ClCAxpwAav7qT_POBlhV0-KmcVW-arT4Mav6zvWuieVlZq2A0qOpPPUICof_vfdzW5n-m6ZPIx-Z1Dwr0X7nnkAUZASZ02SiI0w-I8_wQr08gIxrf9pG0ceKWf1_5XcNEqfbGXFCfpR9Wki8DzkLn7owzmnOKfnimspOEMrHWHO32eDkGaUOMRQlX80DXqPR8GAzY"/></div><h4 class="font-bold text-on-surface text-sm mb-1">Mikko Rantanen</h4><span class="inline-block text-[9px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-2.5 py-1 rounded-lg mb-2">Loyal Client</span><p class="text-xs text-secondary leading-relaxed">Residential · Window & exterior</p></div>
-<div onclick="showClientDetail('client-elena')" class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer text-center group"><div class="w-20 h-20 rounded-full bg-surface-container overflow-hidden border-2 border-outline-variant/20 mx-auto mb-4 group-hover:border-primary/40 transition-all"><img alt="Elena Vance" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuACEAddZZqxG_-APSZTKsfn8_4_qfPPwdoUsP1DfDpwLRqLpqFkaXI2MrcLkhf6xeS1N3tFJYx7dizxxBzUQ5Aq9PQ6Rn2c5fiCIQEesGjRrcHU9NgHBUHVKX7ye_Zs4l-uwVlfrItbMm2tMhnWuZ-TSlQ0M8VKcqn3yXTZ1l4_LD-zR57m4eDUxtz5W_ZfVn28j1hCEZY0SU9hKsw13u893FPVyvbCNe_KlE8d0e3sn4v8H7ty2rbw7KJDD2nur8-vQcqMMzCahhx0"/></div><h4 class="font-bold text-on-surface text-sm mb-1">Elena Vance</h4><span class="inline-block text-[9px] font-bold uppercase tracking-widest bg-tertiary-fixed text-on-tertiary-fixed-variant px-2.5 py-1 rounded-lg mb-2">New Lead</span><p class="text-xs text-secondary leading-relaxed">Interior design · Consultation</p></div>
-<div onclick="showClientDetail('client-james')" class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer text-center group"><div class="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 border-2 border-outline-variant/20 group-hover:border-primary/40 transition-all"><span class="text-primary font-bold text-xl">JL</span></div><h4 class="font-bold text-on-surface text-sm mb-1">James Lindqvist</h4><span class="inline-block text-[9px] font-bold uppercase tracking-widest bg-secondary-fixed text-on-secondary-fixed-variant px-2.5 py-1 rounded-lg mb-2">Active</span><p class="text-xs text-secondary leading-relaxed">Commercial · Landscaping</p></div>
-<div onclick="showClientDetail('client-sofia')" class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer text-center group"><div class="w-20 h-20 rounded-full bg-tertiary/10 flex items-center justify-center mx-auto mb-4 border-2 border-outline-variant/20 group-hover:border-primary/40 transition-all"><span class="text-tertiary font-bold text-xl">SA</span></div><h4 class="font-bold text-on-surface text-sm mb-1">Sofia Andersson</h4><span class="inline-block text-[9px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-2.5 py-1 rounded-lg mb-2">Loyal Client</span><p class="text-xs text-secondary leading-relaxed">Residential · Full property care</p></div>
-<div onclick="showClientDetail('client-tommi')" class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer text-center group"><div class="w-20 h-20 rounded-full bg-secondary/10 flex items-center justify-center mx-auto mb-4 border-2 border-outline-variant/20 group-hover:border-primary/40 transition-all"><span class="text-secondary font-bold text-xl">TN</span></div><h4 class="font-bold text-on-surface text-sm mb-1">Tommi Nurmi</h4><span class="inline-block text-[9px] font-bold uppercase tracking-widest bg-tertiary-fixed text-on-tertiary-fixed-variant px-2.5 py-1 rounded-lg mb-2">New Lead</span><p class="text-xs text-secondary leading-relaxed">Commercial · Office renovation</p></div>
-<div onclick="showClientDetail('client-anna')" class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer text-center group"><div class="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 border-2 border-outline-variant/20 group-hover:border-primary/40 transition-all"><span class="text-primary font-bold text-xl">AK</span></div><h4 class="font-bold text-on-surface text-sm mb-1">Anna Korhonen</h4><span class="inline-block text-[9px] font-bold uppercase tracking-widest bg-secondary-fixed text-on-secondary-fixed-variant px-2.5 py-1 rounded-lg mb-2">Active</span><p class="text-xs text-secondary leading-relaxed">Residential · Kitchen & bath</p></div>
-<div onclick="showClientDetail('client-carlyle')" class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer text-center group"><div class="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4 border-2 border-outline-variant/20 group-hover:border-primary/40 transition-all"><span class="text-green-700 font-bold text-xl">CG</span></div><h4 class="font-bold text-on-surface text-sm mb-1">Carlyle Group</h4><span class="inline-block text-[9px] font-bold uppercase tracking-widest bg-green-100 text-green-700 px-2.5 py-1 rounded-lg mb-2">Retainer</span><p class="text-xs text-secondary leading-relaxed">Corporate · VIP Suite</p></div>
-<div onclick="showClientDetail('client-arnault')" class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer text-center group"><div class="w-20 h-20 rounded-full bg-tertiary/10 flex items-center justify-center mx-auto mb-4 border-2 border-outline-variant/20 group-hover:border-primary/40 transition-all"><span class="text-tertiary font-bold text-xl">AE</span></div><h4 class="font-bold text-on-surface text-sm mb-1">The Arnault Estate</h4><span class="inline-block text-[9px] font-bold uppercase tracking-widest bg-tertiary-fixed text-on-tertiary-fixed-variant px-2.5 py-1 rounded-lg mb-2">Commercial</span><p class="text-xs text-secondary leading-relaxed">Summer Retreat 2025</p></div>
 </div>
-<div id="client-mikko" class="client-detail hidden"><button onclick="closeClientDetail()" class="flex items-center gap-2 text-primary font-bold text-sm mb-8 hover:gap-3 transition-all"><span class="material-symbols-outlined text-lg">arrow_back</span> Back to all clients</button><div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/10 shadow-[0_20px_50px_rgba(28,28,24,0.03)] p-8 md:p-10"><div class="flex flex-col md:flex-row md:items-start gap-6 mb-8"><div class="w-20 h-20 rounded-full bg-surface-container overflow-hidden border-2 border-outline-variant/20 flex-shrink-0"><img alt="Mikko Rantanen" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCmX_4P9xC4WsU3aToNMLRdTxynEeWg7ahN4O9TrL6BupqxBALCnc90SYAd4M5lo-Hi4NrTwf5ClCAxpwAav7qT_POBlhV0-KmcVW-arT4Mav6zvWuieVlZq2A0qOpPPUICof_vfdzW5n-m6ZPIx-Z1Dwr0X7nnkAUZASZ02SiI0w-I8_wQr08gIxrf9pG0ceKWf1_5XcNEqfbGXFCfpR9Wki8DzkLn7owzmnOKfnimspOEMrHWHO32eDkGaUOMRQlX80DXqPR8GAzY"/></div><div class="flex-1"><div class="flex flex-wrap items-center gap-3 mb-1"><h3 class="serif-display text-3xl font-bold text-on-surface">Mikko Rantanen</h3><span class="text-[9px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-3 py-1 rounded-lg">Loyal Client</span></div><p class="text-sm text-secondary mb-3">Residential · Client since 2022 · Window & exterior cleaning</p><div class="flex items-center gap-4"><div class="flex items-center gap-1.5 text-sm text-secondary"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> +358 40 123 4567</div><div class="flex items-center gap-1.5 text-sm text-secondary"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="#0058be"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg> +358 40 123 4567</div></div></div></div><div class="bg-surface-container-low p-6 rounded-xl mb-8"><p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-3">Customer History Summary</p><p class="text-sm text-on-surface leading-relaxed">Mikko has been a loyal residential client since spring 2022. He primarily uses our window cleaning and exterior washing services for his two-storey home in Espoo. He typically books seasonal cleanings (spring & autumn) and has referred two new clients. Prefers WhatsApp communication and usually approves quotes within 24 hours. Total lifetime value: €2,840.</p></div><div><p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-4">Invoice History</p><div class="space-y-3"><a href="#" class="flex items-center justify-between p-4 bg-white rounded-xl border border-outline-variant/10 hover:shadow-md hover:border-primary/20 transition-all group"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-xl">receipt_long</span><div><p class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">INV-2025-0041</p><p class="text-xs text-secondary">Window cleaning — Full exterior</p></div></div><div class="text-right"><p class="text-sm font-bold text-on-surface">€420.00</p><p class="text-xs text-secondary">Mar 15, 2025</p></div></a><a href="#" class="flex items-center justify-between p-4 bg-white rounded-xl border border-outline-variant/10 hover:shadow-md hover:border-primary/20 transition-all group"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-xl">receipt_long</span><div><p class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">INV-2024-0189</p><p class="text-xs text-secondary">Autumn window cleaning</p></div></div><div class="text-right"><p class="text-sm font-bold text-on-surface">€380.00</p><p class="text-xs text-secondary">Oct 2, 2024</p></div></a><a href="#" class="flex items-center justify-between p-4 bg-white rounded-xl border border-outline-variant/10 hover:shadow-md hover:border-primary/20 transition-all group"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-xl">receipt_long</span><div><p class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">INV-2024-0098</p><p class="text-xs text-secondary">Spring cleaning — Windows + facade wash</p></div></div><div class="text-right"><p class="text-sm font-bold text-on-surface">€560.00</p><p class="text-xs text-secondary">Apr 18, 2024</p></div></a></div></div></div></div>
-<div id="client-elena" class="client-detail hidden"><button onclick="closeClientDetail()" class="flex items-center gap-2 text-primary font-bold text-sm mb-8 hover:gap-3 transition-all"><span class="material-symbols-outlined text-lg">arrow_back</span> Back to all clients</button><div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/10 shadow-[0_20px_50px_rgba(28,28,24,0.03)] p-8 md:p-10"><div class="flex flex-col md:flex-row md:items-start gap-6 mb-8"><div class="w-20 h-20 rounded-full bg-surface-container overflow-hidden border-2 border-outline-variant/20 flex-shrink-0"><img alt="Elena Vance" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuACEAddZZqxG_-APSZTKsfn8_4_qfPPwdoUsP1DfDpwLRqLpqFkaXI2MrcLkhf6xeS1N3tFJYx7dizxxBzUQ5Aq9PQ6Rn2c5fiCIQEesGjRrcHU9NgHBUHVKX7ye_Zs4l-uwVlfrItbMm2tMhnWuZ-TSlQ0M8VKcqn3yXTZ1l4_LD-zR57m4eDUxtz5W_ZfVn28j1hCEZY0SU9hKsw13u893FPVyvbCNe_KlE8d0e3sn4v8H7ty2rbw7KJDD2nur8-vQcqMMzCahhx0"/></div><div class="flex-1"><div class="flex flex-wrap items-center gap-3 mb-1"><h3 class="serif-display text-3xl font-bold text-on-surface">Elena Vance</h3><span class="text-[9px] font-bold uppercase tracking-widest bg-tertiary-fixed text-on-tertiary-fixed-variant px-3 py-1 rounded-lg">New Lead</span></div><p class="text-sm text-secondary mb-3">Interior design · First consultation completed</p><div class="flex items-center gap-4"><div class="flex items-center gap-1.5 text-sm text-secondary"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> +358 50 987 6543</div><div class="flex items-center gap-1.5 text-sm text-secondary"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="#0058be"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg> +358 50 987 6543</div></div></div></div><div class="bg-surface-container-low p-6 rounded-xl mb-8"><p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-3">Customer History Summary</p><p class="text-sm text-on-surface leading-relaxed">Elena is a new lead who came through a referral from Mikko Rantanen. She had her first consultation on March 28, 2025, where she discussed a full interior redesign for her apartment in Helsinki. She's particularly interested in Scandinavian minimalism with warm textures. Currently awaiting design reference materials and a preliminary proposal. Prefers email for documents, WhatsApp for quick updates.</p></div><div><p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-4">Invoice History</p><div class="space-y-3"><a href="#" class="flex items-center justify-between p-4 bg-white rounded-xl border border-outline-variant/10 hover:shadow-md hover:border-primary/20 transition-all group"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-xl">receipt_long</span><div><p class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">INV-2025-0052</p><p class="text-xs text-secondary">Initial consultation fee</p></div></div><div class="text-right"><p class="text-sm font-bold text-on-surface">€150.00</p><p class="text-xs text-secondary">Mar 28, 2025</p></div></a></div></div></div></div>
-<div id="client-james" class="client-detail hidden"><button onclick="closeClientDetail()" class="flex items-center gap-2 text-primary font-bold text-sm mb-8 hover:gap-3 transition-all"><span class="material-symbols-outlined text-lg">arrow_back</span> Back to all clients</button><div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/10 shadow-[0_20px_50px_rgba(28,28,24,0.03)] p-8 md:p-10"><div class="flex flex-col md:flex-row md:items-start gap-6 mb-8"><div class="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span class="text-primary font-bold text-xl">JL</span></div><div class="flex-1"><div class="flex flex-wrap items-center gap-3 mb-1"><h3 class="serif-display text-3xl font-bold text-on-surface">James Lindqvist</h3><span class="text-[9px] font-bold uppercase tracking-widest bg-secondary-fixed text-on-secondary-fixed-variant px-3 py-1 rounded-lg">Active</span></div><p class="text-sm text-secondary mb-3">Commercial · Landscaping & property maintenance</p><div class="flex items-center gap-4"><div class="flex items-center gap-1.5 text-sm text-secondary"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> +358 45 555 7890</div><div class="flex items-center gap-1.5 text-sm text-secondary"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="#0058be"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg> +358 45 555 7890</div></div></div></div><div class="bg-surface-container-low p-6 rounded-xl mb-8"><p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-3">Customer History Summary</p><p class="text-sm text-on-surface leading-relaxed">James manages a commercial property in Vantaa and has been using our landscaping and maintenance services since early 2023. He oversees the north garden area and parking lot maintenance for a mid-size office complex. Communication is typically through phone calls. He's methodical with approvals and usually requires a formal quote before proceeding. Total lifetime value: €6,420.</p></div><div><p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-4">Invoice History</p><div class="space-y-3"><a href="#" class="flex items-center justify-between p-4 bg-white rounded-xl border border-outline-variant/10 hover:shadow-md hover:border-primary/20 transition-all group"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-xl">receipt_long</span><div><p class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">INV-2025-0033</p><p class="text-xs text-secondary">Winter maintenance — Parking lot & paths</p></div></div><div class="text-right"><p class="text-sm font-bold text-on-surface">€1,200.00</p><p class="text-xs text-secondary">Feb 10, 2025</p></div></a><a href="#" class="flex items-center justify-between p-4 bg-white rounded-xl border border-outline-variant/10 hover:shadow-md hover:border-primary/20 transition-all group"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-xl">receipt_long</span><div><p class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">INV-2024-0201</p><p class="text-xs text-secondary">Autumn landscaping — North garden</p></div></div><div class="text-right"><p class="text-sm font-bold text-on-surface">€1,850.00</p><p class="text-xs text-secondary">Nov 5, 2024</p></div></a><a href="#" class="flex items-center justify-between p-4 bg-white rounded-xl border border-outline-variant/10 hover:shadow-md hover:border-primary/20 transition-all group"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-xl">receipt_long</span><div><p class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">INV-2024-0112</p><p class="text-xs text-secondary">Summer lawn care contract</p></div></div><div class="text-right"><p class="text-sm font-bold text-on-surface">€2,100.00</p><p class="text-xs text-secondary">Jun 1, 2024</p></div></a></div></div></div></div>
-<div id="client-sofia" class="client-detail hidden"><button onclick="closeClientDetail()" class="flex items-center gap-2 text-primary font-bold text-sm mb-8 hover:gap-3 transition-all"><span class="material-symbols-outlined text-lg">arrow_back</span> Back to all clients</button><div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/10 shadow-[0_20px_50px_rgba(28,28,24,0.03)] p-8 md:p-10"><div class="flex flex-col md:flex-row md:items-start gap-6 mb-8"><div class="w-20 h-20 rounded-full bg-tertiary/10 flex items-center justify-center flex-shrink-0"><span class="text-tertiary font-bold text-xl">SA</span></div><div class="flex-1"><div class="flex flex-wrap items-center gap-3 mb-1"><h3 class="serif-display text-3xl font-bold text-on-surface">Sofia Andersson</h3><span class="text-[9px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-3 py-1 rounded-lg">Loyal Client</span></div><p class="text-sm text-secondary mb-3">Residential · Full property care since 2021</p></div></div><div class="bg-surface-container-low p-6 rounded-xl mb-8"><p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-3">Customer History Summary</p><p class="text-sm text-on-surface leading-relaxed">Sofia has been one of our longest-standing clients. She originally signed on for bi-weekly garden maintenance and has since expanded to full property care including cleaning, seasonal landscaping, and minor repairs. She values consistency and has a standing monthly retainer. Very responsive and appreciates proactive suggestions. Total lifetime value: €14,200.</p></div><div><p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-4">Invoice History</p><div class="space-y-3"><a href="#" class="flex items-center justify-between p-4 bg-white rounded-xl border border-outline-variant/10 hover:shadow-md hover:border-primary/20 transition-all group"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-xl">receipt_long</span><div><p class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">INV-2025-0028</p><p class="text-xs text-secondary">Monthly retainer — March 2025</p></div></div><div class="text-right"><p class="text-sm font-bold text-on-surface">€1,200.00</p><p class="text-xs text-secondary">Mar 1, 2025</p></div></a><a href="#" class="flex items-center justify-between p-4 bg-white rounded-xl border border-outline-variant/10 hover:shadow-md hover:border-primary/20 transition-all group"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-xl">receipt_long</span><div><p class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">INV-2025-0012</p><p class="text-xs text-secondary">Monthly retainer — February 2025</p></div></div><div class="text-right"><p class="text-sm font-bold text-on-surface">€1,200.00</p><p class="text-xs text-secondary">Feb 1, 2025</p></div></a></div></div></div></div>
-<div id="client-tommi" class="client-detail hidden"><button onclick="closeClientDetail()" class="flex items-center gap-2 text-primary font-bold text-sm mb-8 hover:gap-3 transition-all"><span class="material-symbols-outlined text-lg">arrow_back</span> Back to all clients</button><div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/10 shadow-[0_20px_50px_rgba(28,28,24,0.03)] p-8 md:p-10"><div class="flex flex-col md:flex-row md:items-start gap-6 mb-8"><div class="w-20 h-20 rounded-full bg-secondary/10 flex items-center justify-center flex-shrink-0"><span class="text-secondary font-bold text-xl">TN</span></div><div class="flex-1"><div class="flex flex-wrap items-center gap-3 mb-1"><h3 class="serif-display text-3xl font-bold text-on-surface">Tommi Nurmi</h3><span class="text-[9px] font-bold uppercase tracking-widest bg-tertiary-fixed text-on-tertiary-fixed-variant px-3 py-1 rounded-lg">New Lead</span></div><p class="text-sm text-secondary mb-3">Commercial · Office space renovation inquiry</p></div></div><div class="bg-surface-container-low p-6 rounded-xl mb-8"><p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-3">Customer History Summary</p><p class="text-sm text-on-surface leading-relaxed">Tommi reached out after seeing our work on a colleague's office. He manages a growing tech startup in Espoo and needs a complete office renovation including open workspace planning, meeting rooms, and a reception area. He's detail-oriented and has requested a thorough proposal with material samples. Currently in the proposal stage. Estimated project value: €22,000.</p></div><div><p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-4">Invoice History</p><p class="text-sm text-secondary italic">No invoices yet — prospect stage.</p></div></div></div>
-<div id="client-anna" class="client-detail hidden"><button onclick="closeClientDetail()" class="flex items-center gap-2 text-primary font-bold text-sm mb-8 hover:gap-3 transition-all"><span class="material-symbols-outlined text-lg">arrow_back</span> Back to all clients</button><div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/10 shadow-[0_20px_50px_rgba(28,28,24,0.03)] p-8 md:p-10"><div class="flex flex-col md:flex-row md:items-start gap-6 mb-8"><div class="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span class="text-primary font-bold text-xl">AK</span></div><div class="flex-1"><div class="flex flex-wrap items-center gap-3 mb-1"><h3 class="serif-display text-3xl font-bold text-on-surface">Anna Korhonen</h3><span class="text-[9px] font-bold uppercase tracking-widest bg-secondary-fixed text-on-secondary-fixed-variant px-3 py-1 rounded-lg">Active</span></div><p class="text-sm text-secondary mb-3">Residential · Kitchen & bathroom remodel</p></div></div><div class="bg-surface-container-low p-6 rounded-xl mb-8"><p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-3">Customer History Summary</p><p class="text-sm text-on-surface leading-relaxed">Anna is midway through a kitchen and bathroom remodel at her home in Tampere. She was referred by Sofia Andersson. She's very involved in the design process and has clear preferences for natural stone and warm wood tones. The project is on track and she's been easy to work with. A revised proposal for additional bathroom fixtures is pending. Total invoiced so far: €15,800.</p></div><div><p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-4">Invoice History</p><div class="space-y-3"><a href="#" class="flex items-center justify-between p-4 bg-white rounded-xl border border-outline-variant/10 hover:shadow-md hover:border-primary/20 transition-all group"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-xl">receipt_long</span><div><p class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">INV-2025-0038</p><p class="text-xs text-secondary">Kitchen remodel — Phase 1 materials</p></div></div><div class="text-right"><p class="text-sm font-bold text-on-surface">€8,400.00</p><p class="text-xs text-secondary">Feb 20, 2025</p></div></a><a href="#" class="flex items-center justify-between p-4 bg-white rounded-xl border border-outline-variant/10 hover:shadow-md hover:border-primary/20 transition-all group"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-xl">receipt_long</span><div><p class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">INV-2025-0019</p><p class="text-xs text-secondary">Bathroom demolition & prep</p></div></div><div class="text-right"><p class="text-sm font-bold text-on-surface">€7,400.00</p><p class="text-xs text-secondary">Jan 15, 2025</p></div></a></div></div></div></div>
-<div id="client-carlyle" class="client-detail hidden"><button onclick="closeClientDetail()" class="flex items-center gap-2 text-primary font-bold text-sm mb-8 hover:gap-3 transition-all"><span class="material-symbols-outlined text-lg">arrow_back</span> Back to all clients</button><div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/10 shadow-[0_20px_50px_rgba(28,28,24,0.03)] p-8 md:p-10"><div class="flex flex-col md:flex-row md:items-start gap-6 mb-8"><div class="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0"><span class="text-green-700 font-bold text-xl">CG</span></div><div class="flex-1"><div class="flex flex-wrap items-center gap-3 mb-1"><h3 class="serif-display text-3xl font-bold text-on-surface">Carlyle Group</h3><span class="text-[9px] font-bold uppercase tracking-widest bg-green-100 text-green-700 px-3 py-1 rounded-lg">Retainer</span></div><p class="text-sm text-secondary mb-3">Corporate · VIP Suite maintenance & concierge</p></div></div><div class="bg-surface-container-low p-6 rounded-xl mb-8"><p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-3">Customer History Summary</p><p class="text-sm text-on-surface leading-relaxed">Carlyle Group is our highest-value corporate client on a €32,000 annual retainer. They require full concierge-level maintenance for their VIP executive suite in central Helsinki, including weekly cleaning, seasonal décor updates, and on-call repair services. The account is managed through their facilities coordinator. Extremely professional relationship with minimal friction. Renewed for a second year in January 2025.</p></div><div><p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-4">Invoice History</p><div class="space-y-3"><a href="#" class="flex items-center justify-between p-4 bg-white rounded-xl border border-outline-variant/10 hover:shadow-md hover:border-primary/20 transition-all group"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-xl">receipt_long</span><div><p class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">INV-2025-0005</p><p class="text-xs text-secondary">Annual retainer — 2025</p></div></div><div class="text-right"><p class="text-sm font-bold text-on-surface">€32,000.00</p><p class="text-xs text-secondary">Jan 5, 2025</p></div></a><a href="#" class="flex items-center justify-between p-4 bg-white rounded-xl border border-outline-variant/10 hover:shadow-md hover:border-primary/20 transition-all group"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-xl">receipt_long</span><div><p class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">INV-2024-0003</p><p class="text-xs text-secondary">Annual retainer — 2024</p></div></div><div class="text-right"><p class="text-sm font-bold text-on-surface">€30,000.00</p><p class="text-xs text-secondary">Jan 8, 2024</p></div></a></div></div></div></div>
-<div id="client-arnault" class="client-detail hidden"><button onclick="closeClientDetail()" class="flex items-center gap-2 text-primary font-bold text-sm mb-8 hover:gap-3 transition-all"><span class="material-symbols-outlined text-lg">arrow_back</span> Back to all clients</button><div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/10 shadow-[0_20px_50px_rgba(28,28,24,0.03)] p-8 md:p-10"><div class="flex flex-col md:flex-row md:items-start gap-6 mb-8"><div class="w-20 h-20 rounded-full bg-tertiary/10 flex items-center justify-center flex-shrink-0"><span class="text-tertiary font-bold text-xl">AE</span></div><div class="flex-1"><div class="flex flex-wrap items-center gap-3 mb-1"><h3 class="serif-display text-3xl font-bold text-on-surface">The Arnault Estate</h3><span class="text-[9px] font-bold uppercase tracking-widest bg-tertiary-fixed text-on-tertiary-fixed-variant px-3 py-1 rounded-lg">Commercial</span></div><p class="text-sm text-secondary mb-3">High-end estate · Summer Retreat 2025</p></div></div><div class="bg-surface-container-low p-6 rounded-xl mb-8"><p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-3">Customer History Summary</p><p class="text-sm text-on-surface leading-relaxed">The Arnault Estate is a prestigious new account involving a full summer retreat preparation for a high-net-worth family's lakeside property. The scope includes landscaping, interior staging, dock maintenance, and concierge-level seasonal setup. Initial contact was made through a private referral network. This is a legacy wealth client requiring white-glove service. Estimated project value: €45,000. Currently in the initial contact and scoping phase.</p></div><div><p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-4">Invoice History</p><p class="text-sm text-secondary italic">No invoices yet — initial scoping phase.</p></div></div></div>
 </div>
 
 <!-- PAGE: Deal Flow -->
 <div id="page-dealflow" class="page">
-<header class="mb-10"><div class="flex items-center gap-2 mb-2"><span class="text-secondary font-label text-[10px] uppercase tracking-[0.3em] block">Pipeline Overview</span><div class="h-px flex-1 bg-outline-variant/30"></div></div><div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4"><div><h1 class="serif-display text-5xl md:text-7xl font-bold tracking-tight text-on-surface leading-tight">Dealflow Pipeline</h1><p class="text-secondary mt-4 text-lg leading-relaxed font-light italic serif-display">Managing 24 active high-value relationships</p></div><div class="flex items-center gap-3"><button class="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-outline-variant text-sm font-bold text-on-surface bg-white hover:bg-surface-container-low transition-all"><span class="material-symbols-outlined text-lg">tune</span> Filter</button><button class="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-outline-variant text-sm font-bold text-on-surface bg-white hover:bg-surface-container-low transition-all"><span class="material-symbols-outlined text-lg">upload</span> Export</button></div></div></header>
+<header class="mb-10"><div class="flex items-center gap-2 mb-2"><span class="text-secondary font-label text-[10px] uppercase tracking-[0.3em] block">Pipeline Overview</span><div class="h-px flex-1 bg-outline-variant/30"></div></div><div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4"><div><h1 class="serif-display text-5xl md:text-7xl font-bold tracking-tight text-on-surface leading-tight">Dealflow Pipeline</h1><p class="text-secondary mt-4 text-lg leading-relaxed font-light italic serif-display">Your active client relationships</p></div><div class="flex items-center gap-2 flex-wrap"><button onclick="openNewDealModal()" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:opacity-90 transition-all"><span class="material-symbols-outlined text-lg">add</span> New Deal</button><button class="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-outline-variant text-sm font-bold text-on-surface bg-white hover:bg-surface-container-low transition-all"><span class="material-symbols-outlined text-lg">tune</span> Filter</button><button class="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-outline-variant text-sm font-bold text-on-surface bg-white hover:bg-surface-container-low transition-all"><span class="material-symbols-outlined text-lg">upload</span> Export</button></div></div></header>
 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-<div><div class="flex items-center gap-3 mb-5"><h3 class="serif-display text-xl font-bold text-on-surface">Initial Contact</h3><span class="text-xs font-bold text-secondary bg-surface-container-high px-2.5 py-1 rounded-full">08</span></div><div class="space-y-4"><div class="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-md transition-all cursor-pointer border-l-4 border-l-primary/30"><div class="flex items-center justify-between mb-3"><span class="text-[9px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-2.5 py-1 rounded-lg">Residential</span><span class="serif-display text-lg font-bold text-primary italic">€12,500</span></div><h4 class="font-bold text-on-surface text-base mb-0.5">Mikko Rantanen</h4><p class="text-xs text-secondary mb-3">Window & Exterior Care</p><div class="flex items-center gap-2 bg-surface-container-low px-3 py-2 rounded-lg"><span class="material-symbols-outlined text-sm text-primary">auto_awesome</span><span class="text-xs text-secondary">Vibe:</span><span class="text-xs font-bold text-primary">Loyal & Predictable</span></div></div><div class="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-md transition-all cursor-pointer border-l-4 border-l-primary/30"><div class="flex items-center justify-between mb-3"><span class="text-[9px] font-bold uppercase tracking-widest bg-tertiary-fixed text-on-tertiary-fixed-variant px-2.5 py-1 rounded-lg">Commercial</span><span class="serif-display text-lg font-bold text-primary italic">€45,000</span></div><h4 class="font-bold text-on-surface text-base mb-0.5">The Arnault Estate</h4><p class="text-xs text-secondary mb-3">Summer Retreat 2025</p><div class="flex items-center gap-2 bg-surface-container-low px-3 py-2 rounded-lg"><span class="material-symbols-outlined text-sm text-primary">auto_awesome</span><span class="text-xs text-secondary">Vibe:</span><span class="text-xs font-bold text-primary">Legacy Wealth</span></div></div></div></div>
-<div><div class="flex items-center gap-3 mb-5"><h3 class="serif-display text-xl font-bold text-on-surface">Vibe Check</h3><span class="text-xs font-bold text-white bg-primary px-2.5 py-1 rounded-full">04</span></div><div class="space-y-4"><div class="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-md transition-all cursor-pointer border-l-4 border-l-primary"><div class="flex items-center justify-between mb-3"><span class="text-[9px] font-bold uppercase tracking-widest bg-secondary-fixed text-on-secondary-fixed-variant px-2.5 py-1 rounded-lg">Interior</span><span class="serif-display text-lg font-bold text-primary italic">€8,500</span></div><h4 class="font-bold text-on-surface text-base mb-0.5">Elena Vance</h4><p class="text-xs text-secondary mb-3">Full Interior Redesign</p><div class="flex items-center gap-2 bg-surface-container-low px-3 py-2 rounded-lg"><span class="material-symbols-outlined text-sm text-primary" style="font-variation-settings: 'FILL' 1;">favorite</span><span class="text-xs text-secondary">Vibe:</span><span class="text-xs font-bold text-primary">Easy Going</span></div></div><div class="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-md transition-all cursor-pointer border-l-4 border-l-primary"><div class="flex items-center justify-between mb-3"><span class="text-[9px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-2.5 py-1 rounded-lg">Landscaping</span><span class="serif-display text-lg font-bold text-primary italic">€6,200</span></div><h4 class="font-bold text-on-surface text-base mb-0.5">James Lindqvist</h4><p class="text-xs text-secondary mb-3">North Garden Renovation</p><div class="flex items-center gap-2 bg-surface-container-low px-3 py-2 rounded-lg"><span class="material-symbols-outlined text-sm text-primary">auto_awesome</span><span class="text-xs text-secondary">Vibe:</span><span class="text-xs font-bold text-primary">Professional</span></div></div></div></div>
-<div><div class="flex items-center gap-3 mb-5"><h3 class="serif-display text-xl font-bold text-on-surface">Proposal</h3><span class="text-xs font-bold text-secondary bg-surface-container-high px-2.5 py-1 rounded-full">06</span></div><div class="space-y-4"><div class="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-md transition-all cursor-pointer border-l-4 border-l-tertiary/40"><div class="flex items-center justify-between mb-3"><span class="text-[9px] font-bold uppercase tracking-widest bg-tertiary-fixed text-on-tertiary-fixed-variant px-2.5 py-1 rounded-lg">Membership</span><span class="serif-display text-lg font-bold text-primary italic">€8,000/mo</span></div><h4 class="font-bold text-on-surface text-base mb-0.5">Sofia Andersson</h4><p class="text-xs text-secondary mb-3">Full Property Care Package</p><div class="flex items-center gap-2 bg-surface-container-low px-3 py-2 rounded-lg"><span class="material-symbols-outlined text-sm text-primary">auto_awesome</span><span class="text-xs text-secondary">Vibe:</span><span class="text-xs font-bold text-primary">Highly Selective</span></div></div><div class="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-md transition-all cursor-pointer border-l-4 border-l-tertiary/40"><div class="flex items-center justify-between mb-3"><span class="text-[9px] font-bold uppercase tracking-widest bg-secondary-fixed text-on-secondary-fixed-variant px-2.5 py-1 rounded-lg">Renovation</span><span class="serif-display text-lg font-bold text-primary italic">€22,000</span></div><h4 class="font-bold text-on-surface text-base mb-0.5">Tommi Nurmi</h4><p class="text-xs text-secondary mb-3">Office Space Renovation</p><div class="flex items-center gap-2 bg-surface-container-low px-3 py-2 rounded-lg"><span class="material-symbols-outlined text-sm text-primary">auto_awesome</span><span class="text-xs text-secondary">Vibe:</span><span class="text-xs font-bold text-primary">Detail-Oriented</span></div></div></div></div>
-<div><div class="flex items-center gap-3 mb-5"><h3 class="serif-display text-xl font-bold text-on-surface">Closed</h3><span class="text-xs font-bold text-white bg-green-600 px-2.5 py-1 rounded-full">12</span></div><div class="space-y-4"><div class="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-md transition-all cursor-pointer border-l-4 border-l-green-500/40"><div class="flex items-center justify-between mb-3"><span class="text-[9px] font-bold uppercase tracking-widest bg-surface-container-high text-secondary px-2.5 py-1 rounded-lg">Retainer</span><span class="serif-display text-lg font-bold text-on-surface italic">€32,000</span></div><h4 class="font-bold text-on-surface text-base mb-0.5">Carlyle Group</h4><p class="text-xs text-secondary mb-3">Corporate VIP Suite</p><div class="flex items-center gap-2 bg-green-50 px-3 py-2 rounded-lg"><span class="material-symbols-outlined text-sm text-green-600" style="font-variation-settings: 'FILL' 1;">check_circle</span><span class="text-xs font-bold text-green-700">Secured</span></div></div><div class="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-md transition-all cursor-pointer border-l-4 border-l-green-500/40"><div class="flex items-center justify-between mb-3"><span class="text-[9px] font-bold uppercase tracking-widest bg-surface-container-high text-secondary px-2.5 py-1 rounded-lg">Project</span><span class="serif-display text-lg font-bold text-on-surface italic">€15,800</span></div><h4 class="font-bold text-on-surface text-base mb-0.5">Anna Korhonen</h4><p class="text-xs text-secondary mb-3">Kitchen & Bathroom Remodel</p><div class="flex items-center gap-2 bg-green-50 px-3 py-2 rounded-lg"><span class="material-symbols-outlined text-sm text-green-600" style="font-variation-settings: 'FILL' 1;">check_circle</span><span class="text-xs font-bold text-green-700">Secured</span></div></div></div></div>
+<div><div class="flex items-center gap-3 mb-5"><h3 class="serif-display text-xl font-bold text-on-surface">Initial Contact</h3></div><div id="deals-col-lead" class="flex flex-col gap-3"><p class="text-sm text-secondary">Loading…</p></div></div>
+<div><div class="flex items-center gap-3 mb-5"><h3 class="serif-display text-xl font-bold text-on-surface">Vibe Check</h3></div><div id="deals-col-qualified" class="flex flex-col gap-3"><p class="text-sm text-secondary">Loading…</p></div></div>
+<div><div class="flex items-center gap-3 mb-5"><h3 class="serif-display text-xl font-bold text-on-surface">Proposal</h3></div><div id="deals-col-proposal" class="flex flex-col gap-3"><p class="text-sm text-secondary">Loading…</p></div></div>
+<div><div class="flex items-center gap-3 mb-5"><h3 class="serif-display text-xl font-bold text-on-surface">Closed</h3></div><div id="deals-col-closed" class="flex flex-col gap-3"><p class="text-sm text-secondary">Loading…</p></div></div>
 </div>
 </div>
 
@@ -806,19 +444,44 @@ View Full Pipeline →
 <input id="settings-name" type="text" value="Mikko" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" onchange="updateName(this.value)"/>
 </div>
 <div>
+<label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Beeper Name <span class="normal-case font-normal text-secondary/70">(used in AI summaries)</span></label>
+<input id="settings-beeper-name" type="text" placeholder="e.g. Anssi" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+</div>
+<div>
 <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Email</label>
-<input type="email" value="mikko@attra.fi" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+<input id="settings-email" type="email" value="" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
 </div>
 <div>
 <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Phone</label>
-<input type="tel" value="+358 40 123 4567" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+<input id="settings-phone" type="tel" value="" placeholder="+1 555 000 0000" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
 </div>
 <div>
 <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Business Name</label>
 <input type="text" value="ATTRA" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
 </div>
 </div>
-<button class="mt-2 bg-primary text-white px-6 py-2.5 rounded-xl text-xs font-bold hover:opacity-90 transition-all">Save Changes</button>
+<div class="flex items-center gap-3 mt-2">
+  <button onclick="saveProfileSettings()" class="bg-primary text-white px-6 py-2.5 rounded-xl text-xs font-bold hover:opacity-90 transition-all">Save Changes</button>
+  <span id="settings-profile-msg" class="text-xs text-secondary"></span>
+</div>
+</div>
+</div>
+
+<!-- Visibility -->
+<div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/10 shadow-sm overflow-hidden">
+<div class="px-8 py-5 border-b border-outline-variant/10 bg-surface-container-low/40">
+<h3 class="font-bold text-[10px] text-secondary uppercase tracking-widest">Visibility</h3>
+</div>
+<div class="p-8">
+<div class="flex items-center justify-between">
+<div>
+<p class="font-medium text-on-surface text-sm">Hide personal contacts</p>
+<p class="text-xs text-secondary mt-0.5">Personal contacts won't appear in the client list and their messages won't be pulled from Beeper</p>
+</div>
+<button id="toggle-hide-personal-contacts" onclick="toggleApiSetting(this, 'hide_personal_contacts')" data-on="false" class="setting-toggle w-11 h-6 rounded-full bg-surface-container-high transition-all relative flex-shrink-0">
+<span class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all"></span>
+</button>
+</div>
 </div>
 </div>
 
@@ -859,7 +522,7 @@ View Full Pipeline →
 <div class="h-px bg-outline-variant/15"></div>
 <div>
 <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">AI Signature</label>
-<input type="text" value="Best, Mikko — ATTRA" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+<input id="settings-signature" type="text" value="" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
 <p class="text-[10px] text-secondary mt-1.5">Added to the end of every AI-drafted message.</p>
 </div>
 </div>
@@ -1030,198 +693,196 @@ View Full Pipeline →
 </main>
 
 <!-- BottomNavBar (Mobile only) -->
-<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-[#fdf9f2]/90 backdrop-blur-xl border-t border-outline-variant/20 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] rounded-t-3xl">
-<button onclick="showPage('page-home')" class="flex flex-col items-center justify-center bg-[#0058be]/10 text-[#0058be] rounded-2xl px-5 py-2 scale-95 transition-transform duration-150"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">home</span><span class="font-sans text-[10px] font-bold tracking-tighter">Home</span></button>
-<button onclick="showPage('page-inbox')" class="flex flex-col items-center justify-center text-[#495e8a] p-2"><span class="material-symbols-outlined">inbox</span><span class="font-sans text-[10px] font-bold tracking-tighter">Inbox</span></button>
-<button onclick="showPage('page-dashboard')" class="flex flex-col items-center justify-center text-[#495e8a] p-2"><span class="material-symbols-outlined">dashboard</span><span class="font-sans text-[10px] font-bold tracking-tighter">Dashboard</span></button>
-<button onclick="showPage('page-dealflow')" class="flex flex-col items-center justify-center text-[#495e8a] p-2"><span class="material-symbols-outlined">bolt</span><span class="font-sans text-[10px] font-bold tracking-tighter">Deal Flow</span></button>
-<button onclick="showPage('page-settings')" class="flex flex-col items-center justify-center text-[#495e8a] p-2"><span class="material-symbols-outlined">settings</span><span class="font-sans text-[10px] font-bold tracking-tighter">Settings</span></button>
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 py-3 bg-[#fdf9f2]/90 backdrop-blur-xl border-t border-outline-variant/20 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] rounded-t-3xl">
+<button onclick="showPage('page-home')" data-mobile-page="page-home" class="mobile-nav-btn flex flex-col items-center justify-center px-3 py-2 rounded-2xl transition-all duration-150 text-[#0058be] bg-[#0058be]/10 scale-95"><span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">home</span><span class="font-sans text-[10px] font-bold tracking-tighter">Home</span></button>
+<button onclick="showPage('page-inbox')" data-mobile-page="page-inbox" class="mobile-nav-btn flex flex-col items-center justify-center px-3 py-2 rounded-2xl transition-all duration-150 text-[#495e8a]"><span class="material-symbols-outlined text-xl">inbox</span><span class="font-sans text-[10px] font-bold tracking-tighter">Inbox</span></button>
+<button onclick="showPage('page-dashboard')" data-mobile-page="page-dashboard" class="mobile-nav-btn flex flex-col items-center justify-center px-3 py-2 rounded-2xl transition-all duration-150 text-[#495e8a]"><span class="material-symbols-outlined text-xl">dashboard</span><span class="font-sans text-[10px] font-bold tracking-tighter">Dashboard</span></button>
+<button onclick="showPage('page-clients')" data-mobile-page="page-clients" class="mobile-nav-btn flex flex-col items-center justify-center px-3 py-2 rounded-2xl transition-all duration-150 text-[#495e8a]"><span class="material-symbols-outlined text-xl">people</span><span class="font-sans text-[10px] font-bold tracking-tighter">Clients</span></button>
+<button onclick="showPage('page-dealflow')" data-mobile-page="page-dealflow" class="mobile-nav-btn flex flex-col items-center justify-center px-3 py-2 rounded-2xl transition-all duration-150 text-[#495e8a]"><span class="material-symbols-outlined text-xl">bolt</span><span class="font-sans text-[10px] font-bold tracking-tighter">Deals</span></button>
+<button onclick="showPage('page-settings')" data-mobile-page="page-settings" class="mobile-nav-btn flex flex-col items-center justify-center px-3 py-2 rounded-2xl transition-all duration-150 text-[#495e8a]"><span class="material-symbols-outlined text-xl">settings</span><span class="font-sans text-[10px] font-bold tracking-tighter">Settings</span></button>
 </nav>
-<script>
-  function escapeHtml(value) {
-    return String(value || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/\"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
+<!-- MODAL: Deal Detail -->
+<div id="deal-modal" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+  <div class="absolute inset-0 bg-on-surface/40 backdrop-blur-sm" onclick="closeDealModal()"></div>
+  <div class="relative bg-surface w-full max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl border border-outline-variant/10 flex flex-col max-h-[95dvh] sm:max-h-[90vh]">
+    <div class="flex items-center justify-between px-5 py-4 sm:px-8 sm:py-6 border-b border-outline-variant/10">
+      <h2 id="deal-modal-heading" class="serif-display text-xl sm:text-2xl font-bold text-on-surface">Deal Details</h2>
+      <button onclick="closeDealModal()" class="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface-container-high transition-all text-secondary"><span class="material-symbols-outlined text-xl">close</span></button>
+    </div>
+    <div class="overflow-y-auto p-5 sm:p-8 space-y-5 flex-1">
+      <input type="hidden" id="deal-modal-id"/>
+      <div>
+        <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Title</label>
+        <input id="deal-modal-title" type="text" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Status</label>
+          <select id="deal-modal-status" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+            <option value="lead">Lead</option>
+            <option value="qualified">Qualified</option>
+            <option value="proposal">Proposal</option>
+            <option value="negotiation">Negotiation</option>
+            <option value="won">Won</option>
+            <option value="lost">Lost</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Amount (€)</label>
+          <input id="deal-modal-amount" type="number" min="0" step="0.01" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Expected Close</label>
+          <input id="deal-modal-close-date" type="date" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+        </div>
+        <div>
+          <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Client</label>
+          <input type="hidden" id="deal-modal-customer-id"/>
+          <button type="button" id="deal-modal-client" onclick="openClientFromDeal()" class="w-full text-left px-4 py-2.5 text-sm text-on-surface bg-surface-container rounded-xl border border-outline-variant/20 hover:bg-surface-container-low transition-colors cursor-pointer"></button>
+          <select id="deal-modal-client-select" class="hidden w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"><option value="">— Select client —</option></select>
+        </div>
+      </div>
+      <div>
+        <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Description</label>
+        <textarea id="deal-modal-description" rows="4" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"></textarea>
+      </div>
+    </div>
+    <div class="px-5 py-4 sm:px-8 sm:py-5 border-t border-outline-variant/10 flex items-center justify-between gap-3">
+      <p id="deal-modal-status-msg" class="text-xs text-secondary"></p>
+      <div class="flex gap-3">
+        <button onclick="closeDealModal()" class="px-5 py-2.5 rounded-xl border border-outline-variant text-sm font-bold text-on-surface hover:bg-surface-container-low transition-all">Cancel</button>
+        <button onclick="saveDeal()" class="px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:opacity-90 transition-all">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-  function initialsFromName(name) {
-    var parts = String(name || '').trim().split(/\s+/).filter(Boolean);
-    if (!parts.length) return '??';
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  }
+<!-- MODAL: Client Detail -->
+<div id="client-modal" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+  <div class="absolute inset-0 bg-on-surface/40 backdrop-blur-sm" onclick="closeClientModal()"></div>
+  <div class="relative bg-surface w-full max-w-4xl rounded-t-3xl sm:rounded-3xl shadow-2xl border border-outline-variant/10 flex flex-col max-h-[95dvh] sm:max-h-[90vh]">
+    <div class="flex items-center justify-between px-5 py-4 sm:px-8 sm:py-6 border-b border-outline-variant/10">
+      <h2 id="client-modal-heading" class="serif-display text-xl sm:text-2xl font-bold text-on-surface">Client Details</h2>
+      <div class="flex items-center gap-2">
+        <button id="client-modal-pin-btn" onclick="toggleModalPin()" class="hidden w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface-container-high transition-all text-secondary" title="Pin client"><span class="material-symbols-outlined text-xl">push_pin</span></button>
+        <button onclick="closeClientModal()" class="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface-container-high transition-all text-secondary"><span class="material-symbols-outlined text-xl">close</span></button>
+      </div>
+    </div>
+    <div class="overflow-y-auto p-5 sm:p-8 space-y-5 flex-1">
+      <input type="hidden" id="client-modal-id"/>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Name</label>
+          <input id="client-modal-name" type="text" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+        </div>
+        <div>
+          <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Status</label>
+          <select id="client-modal-status" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+            <option value="unknown">Unknown</option>
+            <option value="personal contact">Personal Contact</option>
+            <option value="lead">Lead</option>
+            <option value="prospect">Prospect</option>
+            <option value="customer">Customer</option>
+            <option value="partner">Partner</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Phone</label>
+          <input id="client-modal-phone" type="text" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+        </div>
+        <div>
+          <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Email</label>
+          <input id="client-modal-email" type="email" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+        </div>
+      </div>
+      <div>
+        <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Customer Profile (one-liner)</label>
+        <input id="client-modal-profile" type="text" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+      </div>
+      <div>
+        <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Notes</label>
+        <textarea id="client-modal-notes" rows="4" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"></textarea>
+      </div>
+      <div>
+        <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Tags</label>
+        <div id="client-modal-tags-pills" class="flex flex-wrap gap-2 mb-2"></div>
+        <select id="client-modal-tags-select" onchange="onTagSelectChange(this)" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+          <option value="">+ Add tag…</option>
+        </select>
+        <div id="client-modal-new-tag-row" class="hidden mt-2 flex items-center gap-2">
+          <input id="client-modal-new-tag-input" type="text" placeholder="Tag name…" class="flex-1 bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmNewTag();}if(event.key==='Escape'){cancelNewTag();}"/>
+          <button type="button" onclick="confirmNewTag()" class="px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:opacity-90 transition-all flex-shrink-0">Add</button>
+          <button type="button" onclick="cancelNewTag()" class="px-3 py-2.5 rounded-xl border border-outline-variant text-sm font-bold text-secondary hover:bg-surface-container-low transition-all flex-shrink-0"><span class="material-symbols-outlined text-base leading-none">close</span></button>
+        </div>
+      </div>
+      <div id="client-modal-events-section">
+        <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Scheduled Events</label>
+        <div id="client-modal-events-list" class="space-y-2 mb-2"></div>
+        <div id="client-modal-event-form" class="hidden bg-surface-container-low border border-outline-variant/20 rounded-xl p-4 mb-2 space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="sm:col-span-2">
+              <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1">Title</label>
+              <input id="event-form-title" type="text" placeholder="e.g. Follow-up call" class="w-full bg-surface border border-outline-variant/30 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+            </div>
+            <div>
+              <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1">Date</label>
+              <input id="event-form-date" type="date" class="w-full bg-surface border border-outline-variant/30 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+            </div>
+            <div>
+              <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1">Time <span class="font-normal normal-case text-secondary/70">(optional)</span></label>
+              <input id="event-form-time" type="time" class="w-full bg-surface border border-outline-variant/30 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+            </div>
+            <div>
+              <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1">Duration <span class="font-normal normal-case text-secondary/70">(min, optional)</span></label>
+              <input id="event-form-duration" type="number" min="5" step="5" placeholder="e.g. 30" class="w-full bg-surface border border-outline-variant/30 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+            </div>
+            <div>
+              <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1">Notes <span class="font-normal normal-case text-secondary/70">(optional)</span></label>
+              <input id="event-form-event-notes" type="text" class="w-full bg-surface border border-outline-variant/30 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+            </div>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <p id="event-form-msg" class="text-xs text-secondary"></p>
+            <div class="flex gap-2">
+              <button type="button" onclick="cancelEventForm()" class="px-4 py-2 rounded-xl border border-outline-variant text-sm font-bold text-secondary hover:bg-surface-container transition-all">Cancel</button>
+              <button type="button" onclick="saveEventForm()" class="px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold hover:opacity-90 transition-all">Add</button>
+            </div>
+          </div>
+        </div>
+        <button type="button" id="client-modal-event-add-btn" onclick="openEventForm()" class="flex items-center gap-1.5 text-xs font-bold text-primary hover:opacity-80 transition-all px-2 py-1.5 rounded-lg hover:bg-primary/10">
+          <span class="material-symbols-outlined text-sm leading-none">add</span>Add event
+        </button>
+      </div>
+      <div>
+        <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">AI Summary <span class="normal-case font-normal">(read-only)</span></label>
+        <textarea id="client-modal-summary" rows="5" readonly class="w-full bg-surface-container rounded-xl px-4 py-2.5 text-sm text-secondary border border-outline-variant/20 resize-none cursor-default"></textarea>
+      </div>
+      <details class="group">
+        <summary class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary cursor-pointer select-none list-none flex items-center gap-2">
+          <span class="material-symbols-outlined text-sm transition-transform group-open:rotate-90">chevron_right</span>
+          Network IDs
+        </summary>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+          <div><label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">WhatsApp</label><input id="client-modal-whatsapp" type="text" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/></div>
+          <div><label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Telegram</label><input id="client-modal-telegram" type="text" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/></div>
+          <div><label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Instagram</label><input id="client-modal-instagram" type="text" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/></div>
+          <div><label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Signal</label><input id="client-modal-signal" type="text" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/></div>
+        </div>
+      </details>
+    </div>
+    <div class="px-5 py-4 sm:px-8 sm:py-5 border-t border-outline-variant/10 flex items-center justify-between gap-3">
+      <p id="client-modal-status-msg" class="text-xs text-secondary"></p>
+      <div class="flex gap-3">
+        <button onclick="closeClientModal()" class="px-5 py-2.5 rounded-xl border border-outline-variant text-sm font-bold text-on-surface hover:bg-surface-container-low transition-all">Cancel</button>
+        <button onclick="saveClient()" class="px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:opacity-90 transition-all">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-  function statusBadgeClasses(status) {
-    var s = String(status || 'unknown').toLowerCase();
-    if (s === 'customer') return 'bg-primary/10 text-primary';
-    if (s === 'lead') return 'bg-tertiary-fixed text-on-tertiary-fixed-variant';
-    if (s === 'personal contact') return 'bg-secondary-fixed text-on-secondary-fixed-variant';
-    return 'bg-surface-container-high text-secondary';
-  }
-
-  async function loadLeadsIntoClientsGrid() {
-    var grid = document.getElementById('clients-grid');
-    if (!grid) return;
-
-    try {
-      var res = await fetch('/api/leads');
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      var data = await res.json();
-      var leads = Array.isArray(data.leads) ? data.leads : [];
-
-      if (!leads.length) {
-        grid.innerHTML = '<div class="col-span-2 lg:col-span-4 p-6 rounded-2xl border border-outline-variant/20 bg-surface-container-low text-secondary text-sm">No leads yet. Run your CRM ingestion script to create entries.</div>';
-        return;
-      }
-
-      grid.innerHTML = leads.map(function (lead) {
-        var name = escapeHtml(lead.name || 'Unknown');
-        var status = escapeHtml(lead.status || 'unknown');
-        var summary = escapeHtml(lead.summary || '');
-        var phone = escapeHtml(lead.phone || lead.whatsapp_id || lead.telegram_id || 'No direct handle');
-        var initials = escapeHtml(initialsFromName(lead.name));
-        var badge = statusBadgeClasses(lead.status);
-        return '' +
-          '<div class="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 shadow-sm hover:shadow-md transition-all">' +
-            '<div class="flex items-start gap-4">' +
-              '<div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center border-2 border-outline-variant/20 flex-shrink-0">' +
-                '<span class="text-primary font-bold text-lg">' + initials + '</span>' +
-              '</div>' +
-              '<div class="min-w-0 flex-1">' +
-                '<div class="flex flex-wrap items-center gap-2 mb-2">' +
-                  '<h4 class="font-bold text-on-surface text-base truncate">' + name + '</h4>' +
-                  '<span class="inline-block text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg ' + badge + '">' + status + '</span>' +
-                '</div>' +
-                '<p class="text-sm text-secondary leading-relaxed whitespace-pre-wrap">' + (summary || 'No summary yet') + '</p>' +
-                '<p class="text-xs text-outline mt-3">' + phone + '</p>' +
-              '</div>' +
-            '</div>' +
-          '</div>';
-      }).join('');
-    } catch (err) {
-      grid.innerHTML = '<div class="col-span-2 lg:col-span-4 p-6 rounded-2xl border border-error/30 bg-error/5 text-error text-sm">Could not load leads from API. Start app_server.py and open the page via http://127.0.0.1:8000</div>';
-    }
-  }
-
-  function stripNumberPrefix(text) {
-    // Remove patterns like "4. Recommended Next Step: " or "3. Latest Requests: "
-    var match = text.match(/^\d+\.\s+[^:]*:\s*(.*)/);
-    return match ? match[1] : text;
-  }
-
-  async function loadLeadsIntoDashboardTable() {
-    var container = document.getElementById('dashboard-crm-rows');
-    if (!container) return;
-
-    try {
-      var res = await fetch('/api/leads');
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      var data = await res.json();
-      var leads = Array.isArray(data.leads) ? data.leads : [];
-
-      if (!leads.length) {
-        container.innerHTML = '<div class="col-span-12 p-6 rounded-2xl border border-outline-variant/20 bg-surface-container-low text-secondary text-sm">No leads yet. Run your CRM ingestion script to create entries.</div>';
-        return;
-      }
-
-      container.innerHTML = leads.map(function (lead) {
-        var name = escapeHtml(lead.name || 'Unknown');
-        var status = escapeHtml(lead.status || 'unknown');
-        var summary = escapeHtml(lead.summary || '');
-        var initials = escapeHtml(initialsFromName(lead.name));
-        var badge = statusBadgeClasses(lead.status);
-        
-        // Use customer_profile from database, fall back to extracting from summary
-        var profileLine = escapeHtml(lead.customer_profile || '');
-        if (!profileLine) {
-          var summaryLines = summary.split('\n').filter(function(line) { return line.trim().length > 0; });
-          profileLine = summaryLines.length > 1 ? summaryLines[summaryLines.length - 2] : summary;
-        }
-        
-        // Extract last line of summary as next action and strip prefix
-        var summaryLines = summary.split('\n').filter(function(line) { return line.trim().length > 0; });
-        var nextAction = summaryLines.length > 0 ? summaryLines[summaryLines.length - 1] : 'No pending actions';
-        nextAction = stripNumberPrefix(nextAction);
-
-        return '' +
-          '<div class="crm-row grid grid-cols-12 gap-4 px-8 py-5 border-b border-outline-variant/10 items-center">' +
-            '<div class="col-span-4 flex items-center gap-4">' +
-              '<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center border-2 border-outline-variant/20 flex-shrink-0">' +
-                '<span class="text-primary font-bold text-lg">' + initials + '</span>' +
-              '</div>' +
-              '<div class="min-w-0 flex-1">' +
-                '<p class="font-bold text-on-surface text-sm truncate">' + name + '</p>' +
-                '<div class="flex items-center gap-2 mt-1">' +
-                  '<svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="#25D366">' +
-                    '<path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>' +
-                  '</svg>' +
-                  '<svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="#0058be">' +
-                    '<path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>' +
-                  '</svg>' +
-                '</div>' +
-              '</div>' +
-            '</div>' +
-            '<div class="col-span-4">' +
-              '<span class="inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-lg mb-1 ' + badge + '">' + status + '</span>' +
-              '<p class="text-sm text-secondary leading-relaxed">' + profileLine + '</p>' +
-            '</div>' +
-            '<div class="col-span-4">' +
-              '<div class="flex items-center gap-2">' +
-                '<span class="material-symbols-outlined text-primary text-lg">schedule_send</span>' +
-                '<p class="text-sm font-medium text-on-surface">' + nextAction + '</p>' +
-              '</div>' +
-            '</div>' +
-          '</div>';
-      }).join('');
-    } catch (err) {
-      container.innerHTML = '<div class="col-span-12 p-6 rounded-2xl border border-error/30 bg-error/5 text-error text-sm">Could not load leads from API. Start app_server.py and open the page via http://127.0.0.1:8000</div>';
-    }
-  }
-
-  document.addEventListener('DOMContentLoaded', function() {
-    startTypewriter();
-    loadLeadsIntoClientsGrid();
-    loadLeadsIntoDashboardTable();
-
-    var hints = [
-      'Search clients...',
-      'Search leads...',
-      'Search activity...',
-      'Search messages...',
-      'Search deals...',
-      'Search invoices...',
-      'Search reminders...',
-      'Search notes...',
-    ];
-    var idx = 0;
-    var active = 0; // 0 = ph-a is showing, 1 = ph-b is showing
-    var slots = [document.getElementById('ph-a'), document.getElementById('ph-b')];
-    var wrap = document.getElementById('search-ph-wrap');
-    var input = document.getElementById('main-search');
-
-    slots[0].textContent = hints[0];
-    slots[1].textContent = hints[1];
-
-    input.addEventListener('focus', function() { wrap.style.opacity = '0'; });
-    input.addEventListener('blur',  function() { if (!input.value) wrap.style.opacity = '1'; });
-    input.addEventListener('input', function() { wrap.style.opacity = input.value ? '0' : '1'; });
-
-    function cycle() {
-      if (document.activeElement === input || input.value) return;
-      var next = 1 - active;
-      var nextIdx = (idx + 1) % hints.length;
-      slots[next].textContent = hints[nextIdx];
-      // Crossfade: fade out active, fade in next simultaneously
-      slots[active].style.opacity = '0';
-      slots[next].style.opacity = '1';
-      active = next;
-      idx = nextIdx;
-    }
-
-    setInterval(cycle, 2800);
-  });
-</script>
-</body></html>
+<script src="app.js?v=5" defer></script>
+</body>
+</html>
