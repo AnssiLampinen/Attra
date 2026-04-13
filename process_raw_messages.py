@@ -41,12 +41,13 @@ from database import (  # noqa: E402 — must come after env load
     DEFAULT_TENANT_ID,
     fetch_oldest_unprocessed_batch,
     get_customer,
+    get_tenant,
     initialize_database,
     mark_batch_processed,
+    mark_batch_processing,
     resolve_tenant_id_by_api_key,
     upsert_customer_payload,
 )
-from config import USER_NAME  # noqa: E402
 
 
 TENANT_API_KEY = os.getenv("CRM_TENANT_API_KEY")
@@ -61,17 +62,18 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:32b")
 OLLAMA_TIMEOUT_SECONDS = int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "300"))
 SUMMARY_MAX_TOKENS = 1200
 
-STRICT_SUMMARY_FORMAT = (
-    "Create a short, structured note from these chat messages for a service provider. "
-    "Only include details that are explicitly stated in the messages. Ignore call events and missed-call notifications. "
-    f"Address {USER_NAME} as 'you'.\n\n"
-    "Output format (exactly these four lines):\n"
-    "1. Situation: <one sentence on overall context>\n"
-    "2. Customer Needs: <one sentence on what the customer needs/wants>\n"
-    "3. Latest Requests: <one sentence on latest actionable requests/questions>\n"
-    "4. Recommended Next Step: <one sentence on what you should do next>\n\n"
-    "Constraints: maximum 4 sentences total, plain text only, no extra headings, no bullets, no invented facts."
-)
+def _strict_summary_format(username: str) -> str:
+    return (
+        "Create a short, structured note from these chat messages for a service provider. "
+        "Only include details that are explicitly stated in the messages. Ignore call events and missed-call notifications. "
+        f"Address {username} as 'you'.\n\n"
+        "Output format (exactly these four lines):\n"
+        "1. Situation: <one sentence on overall context>\n"
+        "2. Customer Needs: <one sentence on what the customer needs/wants>\n"
+        "3. Latest Requests: <one sentence on latest actionable requests/questions>\n"
+        "4. Recommended Next Step: <one sentence on what you should do next>\n\n"
+        "Constraints: maximum 4 sentences total, plain text only, no extra headings, no bullets, no invented facts."
+    )
 
 CUSTOMER_PROFILE_PROMPT = (
     "Write a brief, single-sentence customer profile based on the messages. "
@@ -167,10 +169,11 @@ def _build_strict_summary(
     existing_summary: str,
     profile_notes: str,
     messages: list[Any],
+    username: str = "you",
 ) -> str:
     recent_text = _format_messages(messages)
     prompt = (
-        f"{STRICT_SUMMARY_FORMAT}\n\n"
+        f"{_strict_summary_format(username)}\n\n"
         "Use the existing summary and profile notes as durable context so no important prior information is lost. "
         "Incorporate any relevant updates from recent messages.\n\n"
         f"Existing summary:\n{existing_summary}\n\n"
@@ -196,11 +199,17 @@ def _now_iso() -> str:
 
 def _process_batch(row: dict) -> None:
     batch_id = int(row["id"])
+    tenant_id = row["tenant_id"]
     customer_id = int(row["customer_id"])
     messages = _deserialize_messages(row["messages"])
     latest_msg_id = row["latest_message_id"]
 
-    existing = get_customer(TENANT_ID, customer_id)
+    mark_batch_processing(batch_id)
+
+    tenant = get_tenant(tenant_id)
+    username = (tenant or {}).get("username") or "you"
+
+    existing = get_customer(tenant_id, customer_id)
     if existing is None:
         print(f"Customer id={customer_id} not found — marking processed and skipping")
         mark_batch_processed(batch_id)
@@ -226,7 +235,7 @@ def _process_batch(row: dict) -> None:
     if not updated_profile_notes:
         updated_profile_notes = _format_messages(messages)
     updated_customer_profile = _build_customer_profile(messages)
-    updated_summary = _build_strict_summary(existing_summary, updated_profile_notes, messages)
+    updated_summary = _build_strict_summary(existing_summary, updated_profile_notes, messages, username)
 
     updated = dict(existing)
     updated["id"] = customer_id
@@ -236,7 +245,7 @@ def _process_batch(row: dict) -> None:
     updated["last_processed_message_id"] = latest_msg_id
     updated["last_updated_at"] = _now_iso()
 
-    upsert_customer_payload(TENANT_ID, updated)
+    upsert_customer_payload(tenant_id, updated)
     mark_batch_processed(batch_id)
 
     changed = updated_summary != existing_summary
@@ -244,8 +253,8 @@ def _process_batch(row: dict) -> None:
 
 
 def poll_once() -> bool:
-    """Process one pending batch. Returns True if a batch was found."""
-    row = fetch_oldest_unprocessed_batch(TENANT_ID)
+    """Process one pending batch across all tenants. Returns True if a batch was found."""
+    row = fetch_oldest_unprocessed_batch()
     if row is None:
         return False
     try:

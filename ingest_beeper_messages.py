@@ -22,8 +22,11 @@ from create_crm_entry_from_latest_chat import (
 )
 from database import (
     DEFAULT_TENANT_ID,
+    append_messages_to_batch,
     find_customer,
-    get_latest_ingested_message_id,
+    find_pending_batch_for_customer,
+    get_customer,
+    get_tenant,
     initialize_database,
     insert_raw_message_batch,
     resolve_tenant_id_by_api_key,
@@ -134,7 +137,7 @@ def _fetch_all_private_chats() -> list[Any]:
     return private_chats[:MONITORED_CONVERSATIONS]
 
 
-def _ingest_chat(chat: Any) -> None:
+def _ingest_chat(chat: Any, hide_personal_contacts: bool = False) -> None:
     # Always fetch the maximum we might need so we have enough for new profiles
     all_messages = _fetch_last_messages(chat, limit=NEW_CUSTOMER_MESSAGE_LIMIT)
     if not all_messages:
@@ -168,17 +171,32 @@ def _ingest_chat(chat: Any) -> None:
         customer_id = upsert_customer_payload(TENANT_ID, payload)
         print(f"Created customer stub for '{contact['name']}' (id={customer_id})")
 
-    # Only ingest if there are messages newer than the last batch
-    stored_msg_id = get_latest_ingested_message_id(TENANT_ID, customer_id)
-    if stored_msg_id == latest_msg_id:
-        print(f"No new messages for '{contact['name']}'; skipping")
+    if hide_personal_contacts and not is_new:
+        existing = get_customer(TENANT_ID, customer_id)
+        if existing and existing.get("status") == "personal contact":
+            print(f"Skipping '{contact['name']}' (personal contact, hide enabled)")
+            return
+
+    limit = NEW_CUSTOMER_MESSAGE_LIMIT if is_new else EXISTING_CUSTOMER_MESSAGE_LIMIT
+    serialized = [_serialize_message(m) for m in ordered[-limit:]]
+
+    # Check for an existing pending (unprocessed + unlocked) batch for this customer
+    pending = find_pending_batch_for_customer(TENANT_ID, customer_id)
+    if pending:
+        if pending["latest_message_id"] == latest_msg_id:
+            print(f"No new messages for '{contact['name']}'; pending batch up to date")
+            return
+        append_messages_to_batch(pending["id"], serialized, latest_msg_id)
+        print(f"Appended to pending batch for '{contact['name']}' (batch_id={pending['id']})")
         return
 
-    # New customers get the full history; existing ones get recent context only
-    limit = NEW_CUSTOMER_MESSAGE_LIMIT if is_new else EXISTING_CUSTOMER_MESSAGE_LIMIT
-    batch_messages = ordered[-limit:]
+    # No pending batch — skip if customer is already fully up to date
+    if not is_new:
+        existing = get_customer(TENANT_ID, customer_id)
+        if existing and existing.get("last_processed_message_id") == latest_msg_id:
+            print(f"No new messages for '{contact['name']}'; already up to date")
+            return
 
-    serialized = [_serialize_message(m) for m in batch_messages]
     batch_id = insert_raw_message_batch(TENANT_ID, customer_id, serialized, latest_msg_id)
     print(
         f"Ingested {len(serialized)} messages for '{contact['name']}' "
@@ -187,9 +205,11 @@ def _ingest_chat(chat: Any) -> None:
 
 
 def poll_once() -> None:
+    tenant = get_tenant(TENANT_ID)
+    hide_personal_contacts = bool((tenant or {}).get("hide_personal_contacts", False))
     for chat in _fetch_all_private_chats():
         try:
-            _ingest_chat(chat)
+            _ingest_chat(chat, hide_personal_contacts=hide_personal_contacts)
         except Exception as exc:
             print(f"Failed to ingest '{_chat_title(chat)}': {exc}")
 

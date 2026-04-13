@@ -1,0 +1,38 @@
+Variables required by ingest_beeper_messages.py
+================================================
+
+REQUIRED (script will not start without these)
+-----------------------------------------------
+BEEPER_ACCESS_TOKEN         Access token for Beeper Desktop API
+SUPABASE_URL              = https://qzgyuubvtjydrbweftqo.supabase.co
+SUPABASE_SERVICE_ROLE_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6Z3l1dWJ2dGp5ZHJid2VmdHFvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTg5MjQ3MSwiZXhwIjoyMDkxNDY4NDcxfQ._apSydgh1IHbIi5iDB6l2F3xaSAhP7Rhyw6iTnEPEPk
+
+REQUIRED for correct tenant scoping
+-------------------------------------
+CRM_TENANT_ID               ID of the tenant whose customers this device manages
+                            (e.g. tenant_anssi)
+                            Falls back to CRM_DEFAULT_TENANT_ID if not set,
+                            which defaults to "default" and may not exist.
+
+OPTIONAL — connection
+----------------------
+BEEPER_BASE_URL             Beeper Desktop local API address
+                            Default: http://localhost:23373
+
+OPTIONAL — tuning
+------------------
+INBOX_POLL_INTERVAL_SECONDS         Seconds between Beeper polls
+                                    Default: 20
+INBOX_NEW_CUSTOMER_MESSAGE_LIMIT    Messages to include for a brand-new customer
+                                    Default: 50
+INBOX_EXISTING_CUSTOMER_MESSAGE_LIMIT  Messages to include for a returning customer
+                                    Default: 10
+INBOX_SCAN_CHAT_LIMIT               How many chats to fetch from Beeper per scan
+                                    Default: 100
+INBOX_MONITORED_CONVERSATIONS       How many of the most recent chats to watch
+                                    Default: 5
+
+OPTIONAL — identity
+--------------------
+ATTRA_USER_NAME             Your first name, used in AI-generated summaries
+                            Default: "you"
