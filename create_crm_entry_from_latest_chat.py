@@ -10,7 +10,7 @@ from database import (
     resolve_tenant_id_by_api_key,
     upsert_customer_payload,
 )
-from fetch_latest_private_chat_messages import MESSAGE_LIMIT, _call_ollama, _format_messages, summarize_with_ollama
+from process_raw_messages import _build_strict_summary, _call_ollama, _format_messages
 from beeper_client import (
     _chat_id,
     _chat_sort_key,
@@ -22,6 +22,7 @@ from beeper_client import (
 )
 
 
+MESSAGE_LIMIT = 30
 DEFAULT_STATUS = "unknown"
 TENANT_API_KEY = os.getenv("CRM_TENANT_API_KEY")
 initialize_database()
@@ -319,10 +320,10 @@ def create_or_update_customer_from_latest_private_chat() -> int:
     if not messages:
         raise RuntimeError("No messages found in the selected private chat.")
 
-    print("Generating structured summary...")
-    summary = summarize_with_ollama(messages)
     print("Generating profile notes...")
     profile_notes = _build_profile_notes(messages)
+    print("Generating structured summary...")
+    summary = _build_strict_summary("", profile_notes, messages)
     print("Generating customer profile...")
     customer_profile = _build_customer_profile(messages)
     latest_message_id = _latest_message_id(messages)
