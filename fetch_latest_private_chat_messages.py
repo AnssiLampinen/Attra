@@ -6,7 +6,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from config import USER_NAME
-from test import _fetch_last_messages, _find_latest_private_chat, _chat_title
+from beeper_client import _fetch_last_messages, _find_latest_private_chat, _chat_title
 
 
 MESSAGE_LIMIT = 30

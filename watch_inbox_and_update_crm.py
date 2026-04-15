@@ -15,6 +15,7 @@ from database import (
     find_customer,
     get_customer,
     initialize_database,
+    is_customer_deleted,
     resolve_tenant_id_by_api_key,
     upsert_customer_payload,
 )
@@ -22,7 +23,7 @@ from fetch_latest_private_chat_messages import (
     _call_ollama,
     _format_messages,
 )
-from test import (
+from beeper_client import (
     _chat_sort_key,
     _chat_title,
     _fetch_last_messages,
@@ -206,6 +207,10 @@ def _process_chat(chat: Any) -> None:
     )
 
     existing_id = find_customer(TENANT_ID, contact["name"], network_values)
+
+    if existing_id is not None and is_customer_deleted(existing_id):
+        print(f"Skipping '{contact['name']}' (deleted)")
+        return
 
     if existing_id is None:
         profile_notes = _update_profile_notes("", last_messages)

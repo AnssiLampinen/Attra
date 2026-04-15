@@ -286,7 +286,7 @@ def _contact_metadata(chat: Any, messages: list) -> Dict[str, str]:
         if full_name:
             contact["name"] = full_name
 
-        username_candidate = _to_username_slug(username) or _to_username_slug(full_name or "")
+        username_candidate = _to_username_slug(username)
         if username_candidate:
             contact["handle"] = username_candidate
 
@@ -314,11 +314,6 @@ def _contact_metadata(chat: Any, messages: list) -> Dict[str, str]:
             if sender_slug:
                 contact["handle"] = sender_slug
                 break
-
-    if _looks_numeric(contact["handle"]):
-        name_slug = _to_username_slug(contact["name"])
-        if name_slug:
-            contact["handle"] = name_slug
 
     if not contact["network"]:
         contact["network"] = _chat_network(chat)
@@ -390,19 +385,24 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def find_customer(name: str, network_values: Dict[str, str]) -> int | None:
-    if name:
-        row = (
-            supabase.table("customers")
-            .select("id")
-            .eq("tenant_id", TENANT_ID)
-            .eq("name", name)
-            .limit(1)
-            .execute()
-        )
-        if row.data:
-            return int(row.data[0]["id"])
+def is_customer_deleted(customer_id: int) -> bool:
+    result = (
+        supabase.table("customers")
+        .select("status")
+        .eq("id", customer_id)
+        .limit(1)
+        .execute()
+    )
+    if result.data:
+        return (result.data[0].get("status") or "").lower() == "deleted"
+    return False
 
+
+def clear_customer_needs_refresh(customer_id: int) -> None:
+    supabase.table("customers").update({"needs_refresh": False}).eq("tenant_id", TENANT_ID).eq("id", customer_id).execute()
+
+
+def find_customer(name: str, network_values: Dict[str, str]) -> int | None:
     for column, value in network_values.items():
         if not value:
             continue
@@ -416,6 +416,19 @@ def find_customer(name: str, network_values: Dict[str, str]) -> int | None:
         )
         if row.data:
             return int(row.data[0]["id"])
+
+    if name:
+        for col in ("name", "display_name"):
+            row = (
+                supabase.table("customers")
+                .select("id")
+                .eq("tenant_id", TENANT_ID)
+                .eq(col, name)
+                .limit(1)
+                .execute()
+            )
+            if row.data:
+                return int(row.data[0]["id"])
 
     return None
 
@@ -590,9 +603,13 @@ def _ingest_chat(chat: Any, hide_personal_contacts: bool = False) -> None:
 
     customer_id = find_customer(contact["name"], network_values)
     is_new = customer_id is None
+    if not is_new and is_customer_deleted(customer_id):
+        print(f"Skipping '{contact['name']}' (deleted)")
+        return
     if is_new:
         payload = {
             "name": contact["name"],
+            "display_name": contact["name"],
             "phone": contact["phone"],
             "email": contact["email"],
             "status": DEFAULT_STATUS,
@@ -602,33 +619,46 @@ def _ingest_chat(chat: Any, hide_personal_contacts: bool = False) -> None:
         customer_id = upsert_customer(payload)
         print(f"Created customer stub for '{contact['name']}' (id={customer_id})")
 
-    if hide_personal_contacts and not is_new:
+    existing = None
+    is_refresh = False
+    if not is_new:
         existing = get_customer(customer_id)
+        is_refresh = bool((existing or {}).get("needs_refresh"))
+        current_display = (existing or {}).get("display_name") or (existing or {}).get("name") or ""
+        if current_display != contact["name"]:
+            supabase.table("customers").update({"display_name": contact["name"]}).eq("tenant_id", TENANT_ID).eq("id", customer_id).execute()
+
+    if hide_personal_contacts and not is_new:
         if existing and existing.get("status") == "personal contact":
             print(f"Skipping '{contact['name']}' (personal contact, hide enabled)")
             return
 
-    limit = NEW_CUSTOMER_MESSAGE_LIMIT if is_new else EXISTING_CUSTOMER_MESSAGE_LIMIT
+    limit = NEW_CUSTOMER_MESSAGE_LIMIT if (is_new or is_refresh) else EXISTING_CUSTOMER_MESSAGE_LIMIT
     serialized = [_serialize_message(m) for m in ordered[-limit:]]
 
     # Check for an existing pending (unprocessed + unlocked) batch for this customer
     pending = find_pending_batch_for_customer(customer_id)
     if pending:
-        if pending["latest_message_id"] == latest_msg_id:
+        if not is_refresh and pending["latest_message_id"] == latest_msg_id:
             print(f"No new messages for '{contact['name']}'; pending batch up to date")
             return
         append_messages_to_batch(pending["id"], serialized, latest_msg_id)
         print(f"Appended to pending batch for '{contact['name']}' (batch_id={pending['id']})")
+        if is_refresh:
+            clear_customer_needs_refresh(customer_id)
+            print(f"Refresh queued for '{contact['name']}'")
         return
 
-    # No pending batch — skip if customer is already fully up to date
-    if not is_new:
-        existing = get_customer(customer_id)
+    # No pending batch — skip if customer is already fully up to date (unless refresh forced)
+    if not is_new and not is_refresh:
         if existing and existing.get("last_processed_message_id") == latest_msg_id:
             print(f"No new messages for '{contact['name']}'; already up to date")
             return
 
     batch_id = insert_raw_message_batch(customer_id, serialized, latest_msg_id)
+    if is_refresh:
+        clear_customer_needs_refresh(customer_id)
+        print(f"Refresh queued for '{contact['name']}'")
     print(
         f"Ingested {len(serialized)} messages for '{contact['name']}' "
         f"(customer_id={customer_id}, batch_id={batch_id}, {'new' if is_new else 'existing'})"

@@ -71,7 +71,7 @@ def create_tenant(
 
 
 def update_tenant_settings(tenant_id: str, settings: dict) -> None:
-    allowed = {"hide_personal_contacts", "username", "display_name"}
+    allowed = {"hide_personal_contacts", "username", "display_name", "voice_note_append_to_notes"}
     data = {k: v for k, v in settings.items() if k in allowed}
     if data:
         supabase.table("tenants").update(data).eq("id", tenant_id).execute()
@@ -112,7 +112,7 @@ def resolve_tenant_id_by_supabase_user_id(supabase_user_id: str) -> str | None:
 
 def create_customer(tenant_id: str, payload: dict) -> dict:
     allowed = {
-        "name", "phone", "email", "status", "notes", "customer_profile",
+        "name", "display_name", "phone", "email", "status", "notes", "customer_profile",
         "whatsapp_id", "instagram_id", "messenger_id", "telegram_id", "signal_id",
         "twitter_id", "linkedin_id", "slack_id", "discord_id",
         "google_messages_id", "google_chat_id", "google_voice_id", "pinned",
@@ -154,7 +154,7 @@ def update_deal(tenant_id: str, deal_id: int, payload: dict) -> dict | None:
 def get_tags_for_tenant(tenant_id: str) -> list[dict]:
     result = (
         supabase.table("tags")
-        .select("id, name")
+        .select("id, name, color")
         .eq("tenant_id", tenant_id)
         .order("name")
         .execute()
@@ -162,9 +162,31 @@ def get_tags_for_tenant(tenant_id: str) -> list[dict]:
     return result.data or []
 
 
-def create_tag(tenant_id: str, name: str) -> dict:
-    result = supabase.table("tags").insert({"tenant_id": tenant_id, "name": name}).execute()
+def create_tag(tenant_id: str, name: str, color: str | None = None) -> dict:
+    row: dict = {"tenant_id": tenant_id, "name": name}
+    if color:
+        row["color"] = color
+    result = supabase.table("tags").insert(row).execute()
     return result.data[0]
+
+
+def update_tag(tenant_id: str, tag_id: int, name: str, color: str | None) -> dict | None:
+    data: dict = {"name": name}
+    data["color"] = color  # allow clearing color by setting None
+    result = (
+        supabase.table("tags")
+        .update(data)
+        .eq("tenant_id", tenant_id)
+        .eq("id", tag_id)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+def delete_tag(tenant_id: str, tag_id: int) -> None:
+    # Remove customer associations first (in case no CASCADE constraint)
+    supabase.table("customer_tags").delete().eq("tag_id", tag_id).execute()
+    supabase.table("tags").delete().eq("tenant_id", tenant_id).eq("id", tag_id).execute()
 
 
 def load_customer_tags_for_tenant(tenant_id: str) -> dict:
@@ -196,12 +218,12 @@ def load_customer_tags_for_tenant(tenant_id: str) -> dict:
 def get_customer_tags(customer_id: int) -> list[dict]:
     result = (
         supabase.table("customer_tags")
-        .select("tag_id, tags(id, name)")
+        .select("tag_id, tags(id, name, color)")
         .eq("customer_id", customer_id)
         .execute()
     )
     return [
-        {"id": r["tags"]["id"], "name": r["tags"]["name"]}
+        {"id": r["tags"]["id"], "name": r["tags"]["name"], "color": r["tags"].get("color")}
         for r in (result.data or [])
         if r.get("tags")
     ]
@@ -217,7 +239,7 @@ def set_customer_tags(customer_id: int, tag_ids: list[int]) -> None:
 
 def update_customer(tenant_id: str, customer_id: int, payload: dict) -> dict | None:
     allowed = {
-        "name", "phone", "email", "status", "notes", "profile_notes", "customer_profile",
+        "name", "display_name", "phone", "email", "status", "notes", "profile_notes", "customer_profile",
         "whatsapp_id", "instagram_id", "messenger_id", "telegram_id", "signal_id",
         "twitter_id", "linkedin_id", "slack_id", "discord_id",
         "google_messages_id", "google_chat_id", "google_voice_id", "pinned",
@@ -266,19 +288,7 @@ def find_customer(
     name: str,
     network_values: dict[str, str],
 ) -> int | None:
-    """Find an existing customer by name or network ID. Returns the customer id or None."""
-    if name:
-        row = (
-            supabase.table("customers")
-            .select("id")
-            .eq("tenant_id", tenant_id)
-            .eq("name", name)
-            .limit(1)
-            .execute()
-        )
-        if row.data:
-            return int(row.data[0]["id"])
-
+    """Find an existing customer by network ID or name. Returns the customer id or None."""
     for column, value in network_values.items():
         if not value:
             continue
@@ -292,6 +302,19 @@ def find_customer(
         )
         if row.data:
             return int(row.data[0]["id"])
+
+    if name:
+        for col in ("name", "display_name"):
+            row = (
+                supabase.table("customers")
+                .select("id")
+                .eq("tenant_id", tenant_id)
+                .eq(col, name)
+                .limit(1)
+                .execute()
+            )
+            if row.data:
+                return int(row.data[0]["id"])
 
     return None
 
@@ -512,3 +535,75 @@ def mark_batch_processed(batch_id: int) -> None:
     """Overwrite message content (data hygiene) then delete the row."""
     supabase.table("raw_messages").update({"messages": []}).eq("id", batch_id).execute()
     supabase.table("raw_messages").delete().eq("id", batch_id).execute()
+
+
+def is_customer_deleted(customer_id: int) -> bool:
+    """Return True if the customer's status is 'deleted'."""
+    result = (
+        supabase.table("customers")
+        .select("status")
+        .eq("id", customer_id)
+        .limit(1)
+        .execute()
+    )
+    if result.data:
+        return (result.data[0].get("status") or "").lower() == "deleted"
+    return False
+
+
+def soft_delete_customer(tenant_id: str, customer_id: int) -> None:
+    """Soft-delete: set status to 'deleted' and clear all notes fields."""
+    supabase.table("customers").update({
+        "status": "deleted",
+        "summary": "",
+        "profile_notes": "",
+        "customer_profile": "",
+        "notes": "",
+    }).eq("tenant_id", tenant_id).eq("id", customer_id).execute()
+
+
+def get_recent_messages_for_customer(
+    tenant_id: str, customer_id: int, limit: int = 50
+) -> list[dict]:
+    """Return up to `limit` recent messages for a customer from raw_messages batches.
+
+    Batches are fetched oldest-first so messages are in roughly chronological order.
+    """
+    result = (
+        supabase.table("raw_messages")
+        .select("messages, fetched_at")
+        .eq("tenant_id", tenant_id)
+        .eq("customer_id", customer_id)
+        .order("fetched_at")
+        .execute()
+    )
+    all_msgs: list[dict] = []
+    for row in (result.data or []):
+        all_msgs.extend(row["messages"] or [])
+    return all_msgs[-limit:] if len(all_msgs) > limit else all_msgs
+
+
+def queue_customer_refresh(tenant_id: str, customer_id: int) -> dict | None:
+    """Clear AI fields, reset last_processed_message_id, and set needs_refresh=True so
+    the next ingest cycle re-fetches 50 messages and re-runs the LLM pipeline."""
+    data = {
+        "customer_profile": "",
+        "profile_notes": "",
+        "summary": "",
+        "last_processed_message_id": None,
+        "needs_refresh": True,
+        "last_updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    result = (
+        supabase.table("customers")
+        .update(data)
+        .eq("tenant_id", tenant_id)
+        .eq("id", customer_id)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+def clear_customer_needs_refresh(tenant_id: str, customer_id: int) -> None:
+    """Clear the needs_refresh flag after the ingest script has queued the batch."""
+    supabase.table("customers").update({"needs_refresh": False}).eq("tenant_id", tenant_id).eq("id", customer_id).execute()

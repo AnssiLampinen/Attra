@@ -365,8 +365,17 @@ Here's your situation at a glance.
 <p id="stat-dash-month" class="serif-display text-4xl font-bold text-green-700">—</p>
 </div>
 </div>
-<div class="flex items-center justify-end mb-4">
-<div class="flex items-center gap-1 bg-surface-container-low rounded-xl p-1">
+<div class="flex items-center gap-3 mb-4">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-secondary text-lg pointer-events-none">search</span>
+<input id="dash-filter-input" type="text" placeholder="Search clients…" oninput="onLeadFilterInput(this.value)" class="lead-filter-input w-full pl-10 pr-4 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all">
+</div>
+<button id="dash-filter-btn" onclick="toggleLeadFilterDropdown(event,'dash-filter-btn')" class="lead-filter-btn relative flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-outline-variant bg-surface-container-lowest text-sm font-medium text-on-surface hover:bg-surface-container-low transition-all flex-shrink-0">
+<span class="material-symbols-outlined text-lg">tune</span>
+<span class="hidden sm:inline">Filter</span>
+<span id="dash-filter-badge" class="hidden min-w-[18px] h-[18px] bg-primary text-white text-[10px] font-bold rounded-full inline-flex items-center justify-center px-1">0</span>
+</button>
+<div class="flex items-center gap-1 bg-surface-container-low rounded-xl p-1 flex-shrink-0">
 <button id="dash-view-grid" class="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-container-lowest shadow-sm text-primary transition-all" title="Grid view">
 <span class="material-symbols-outlined text-lg">grid_view</span>
 </button>
@@ -397,6 +406,17 @@ Here's your situation at a glance.
 <h1 class="serif-display text-5xl md:text-7xl font-bold tracking-tight text-on-surface leading-tight">Clients</h1>
 <p class="text-secondary mt-6 max-w-2xl text-lg leading-relaxed font-light">Full client profiles with service history, invoices, and interaction summaries.</p>
 </header>
+<div class="flex items-center gap-3 mb-4">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-secondary text-lg pointer-events-none">search</span>
+<input id="clients-filter-input" type="text" placeholder="Search clients…" oninput="onLeadFilterInput(this.value)" class="lead-filter-input w-full pl-10 pr-4 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all">
+</div>
+<button id="clients-filter-btn" onclick="toggleLeadFilterDropdown(event,'clients-filter-btn')" class="lead-filter-btn relative flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-outline-variant bg-surface-container-lowest text-sm font-medium text-on-surface hover:bg-surface-container-low transition-all flex-shrink-0">
+<span class="material-symbols-outlined text-lg">tune</span>
+<span class="hidden sm:inline">Filter</span>
+<span id="clients-filter-badge" class="hidden min-w-[18px] h-[18px] bg-primary text-white text-[10px] font-bold rounded-full inline-flex items-center justify-center px-1">0</span>
+</button>
+</div>
 <div id="clients-grid" class="flex flex-col gap-4">
 </div>
 </div>
@@ -494,6 +514,16 @@ Here's your situation at a glance.
 <div class="p-8 space-y-5">
 <div class="flex items-center justify-between">
 <div>
+<p class="font-medium text-on-surface text-sm">Append voice notes to customer notes</p>
+<p class="text-xs text-secondary mt-0.5">Voice note transcriptions are saved to the customer's notes field. When off, only the AI summary and profile are updated.</p>
+</div>
+<button id="toggle-voice-note-append" onclick="toggleApiSetting(this, 'voice_note_append_to_notes')" data-on="true" class="setting-toggle w-11 h-6 rounded-full bg-primary transition-all relative flex-shrink-0">
+<span class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all translate-x-5"></span>
+</button>
+</div>
+<div class="h-px bg-outline-variant/15"></div>
+<div class="flex items-center justify-between">
+<div>
 <p class="font-medium text-on-surface text-sm">Auto-draft messages</p>
 <p class="text-xs text-secondary mt-0.5">AI writes follow-ups based on client interactions</p>
 </div>
@@ -525,6 +555,28 @@ Here's your situation at a glance.
 <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">AI Signature</label>
 <input id="settings-signature" type="text" value="" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
 <p class="text-[10px] text-secondary mt-1.5">Added to the end of every AI-drafted message.</p>
+</div>
+</div>
+</div>
+
+<!-- Tags -->
+<div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/10 shadow-sm overflow-hidden">
+<div class="px-8 py-5 border-b border-outline-variant/10 bg-surface-container-low/40 flex items-center justify-between">
+<h3 class="font-bold text-[10px] text-secondary uppercase tracking-widest">Tags</h3>
+<button onclick="startNewTagFromSettings()" class="flex items-center gap-1 text-xs font-bold text-primary hover:opacity-80 px-2 py-1 rounded-lg hover:bg-primary/10 transition-all">
+<span class="material-symbols-outlined text-sm leading-none">add</span>New Tag
+</button>
+</div>
+<div class="p-8 space-y-3">
+<div id="settings-tags-list" class="space-y-3"></div>
+<!-- New tag form -->
+<div id="settings-new-tag-row" class="hidden flex items-center gap-3 pt-2 border-t border-outline-variant/10">
+<input type="color" value="#6366f1" id="settings-new-tag-color" class="w-8 h-8 rounded-lg cursor-pointer border border-outline-variant/30 p-0.5 flex-shrink-0" />
+<input type="text" id="settings-new-tag-name" placeholder="Tag name…"
+  class="flex-1 bg-surface-container-low border border-outline-variant/30 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+  onkeydown="if(event.key==='Enter')confirmNewTagFromSettings();if(event.key==='Escape')cancelNewTagFromSettings();" />
+<button id="settings-new-tag-confirm" onclick="confirmNewTagFromSettings()" class="px-3 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:opacity-90 transition-all flex-shrink-0">Add</button>
+<button onclick="cancelNewTagFromSettings()" class="px-3 py-2 rounded-xl text-secondary text-xs font-bold hover:bg-surface-container-high transition-all flex-shrink-0">Cancel</button>
 </div>
 </div>
 </div>
@@ -768,6 +820,8 @@ Here's your situation at a glance.
       <h2 id="client-modal-heading" class="serif-display text-xl sm:text-2xl font-bold text-on-surface">Client Details</h2>
       <div class="flex items-center gap-2">
         <button id="client-modal-pin-btn" onclick="toggleModalPin()" class="hidden w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface-container-high transition-all text-secondary" title="Pin client"><span class="material-symbols-outlined text-xl">push_pin</span></button>
+        <button id="client-modal-refresh-btn" onclick="refreshClient()" class="hidden w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface-container-high transition-all text-secondary" title="Refresh AI summary"><span class="material-symbols-outlined text-xl">sync</span></button>
+        <button id="client-modal-delete-btn" onclick="deleteClient()" class="hidden w-9 h-9 flex items-center justify-center rounded-xl hover:bg-error/10 transition-all text-secondary hover:text-error" title="Delete contact"><span class="material-symbols-outlined text-xl">delete</span></button>
         <button onclick="closeClientModal()" class="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface-container-high transition-all text-secondary"><span class="material-symbols-outlined text-xl">close</span></button>
       </div>
     </div>
@@ -788,6 +842,7 @@ Here's your situation at a glance.
             <option value="customer">Customer</option>
             <option value="partner">Partner</option>
             <option value="inactive">Inactive</option>
+            <option value="deleted">Deleted</option>
           </select>
         </div>
         <div>
@@ -804,8 +859,26 @@ Here's your situation at a glance.
         <input id="client-modal-profile" type="text" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
       </div>
       <div>
-        <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Notes</label>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary">Notes</label>
+          <button type="button" id="voice-note-btn" onclick="startVoiceNote()" class="flex items-center gap-1 text-xs font-bold text-primary hover:opacity-80 px-2 py-1 rounded-lg hover:bg-primary/10 transition-all">
+            <span class="material-symbols-outlined text-sm leading-none">mic</span>Voice Note
+          </button>
+        </div>
         <textarea id="client-modal-notes" rows="4" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"></textarea>
+        <div id="voice-note-panel" class="hidden mt-2 bg-surface-container border border-outline-variant/20 rounded-xl p-3">
+          <div class="flex items-center gap-3">
+            <button type="button" id="voice-note-record-btn" onclick="toggleVoiceRecording()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-error text-white text-xs font-bold hover:opacity-90 transition-all">
+              <span class="material-symbols-outlined text-sm leading-none" id="voice-note-record-icon">fiber_manual_record</span>
+              <span id="voice-note-record-label">Record</span>
+            </button>
+            <span id="voice-note-timer" class="text-xs text-secondary font-mono">0:00</span>
+            <span id="voice-note-ready" class="hidden text-xs font-medium" style="color:#15803d">Ready — click Save</span>
+            <button type="button" onclick="cancelVoiceNote()" class="ml-auto text-secondary hover:text-error text-xs flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-error/10 transition-all">
+              <span class="material-symbols-outlined text-sm leading-none">close</span>Cancel
+            </button>
+          </div>
+        </div>
       </div>
       <div>
         <label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">Tags</label>
@@ -884,8 +957,14 @@ Here's your situation at a glance.
   </div>
 </div>
 
-<script src="app.js?v=5" defer></script>
-<script src="app-rendering.js?v=1" defer></script>
-<script src="app-modals.js?v=1" defer></script>
+<!-- Shared lead filter dropdown -->
+<div id="lead-filter-dropdown" class="hidden fixed z-[200] w-72 bg-surface-container-lowest border border-outline-variant/20 rounded-2xl shadow-2xl overflow-hidden" style="top:0;right:0">
+<div id="lead-filter-dropdown-inner" class="p-4 max-h-[70vh] overflow-y-auto">
+</div>
+</div>
+
+<script src="app.js?v=7" defer></script>
+<script src="app-rendering.js?v=6" defer></script>
+<script src="app-modals.js?v=5" defer></script>
 </body>
 </html>

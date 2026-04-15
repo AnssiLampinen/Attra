@@ -43,6 +43,7 @@ from database import (  # noqa: E402 — must come after env load
     get_customer,
     get_tenant,
     initialize_database,
+    is_customer_deleted,
     mark_batch_processed,
     mark_batch_processing,
     resolve_tenant_id_by_api_key,
@@ -56,7 +57,7 @@ TENANT_ID = os.getenv("CRM_TENANT_ID") or (
     resolve_tenant_id_by_api_key(TENANT_API_KEY) if TENANT_API_KEY else DEFAULT_TENANT_ID
 )
 
-POLL_INTERVAL_SECONDS = int(os.getenv("PROCESS_POLL_INTERVAL_SECONDS", "30"))
+POLL_INTERVAL_SECONDS = int(os.getenv("PROCESS_POLL_INTERVAL_SECONDS", "5"))
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:32b")
 OLLAMA_TIMEOUT_SECONDS = int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "300"))
@@ -64,21 +65,26 @@ SUMMARY_MAX_TOKENS = 1200
 
 def _strict_summary_format(username: str) -> str:
     return (
-        "Create a short, structured note from these chat messages for a service provider. "
+        "Create a short, structured note from these messages for a service provider. "
         "Only include details that are explicitly stated in the messages. Ignore call events and missed-call notifications. "
         f"Address {username} as 'you'.\n\n"
+        "Input may contain two types of entries:\n"
+        "- Regular conversation messages between the team and the customer.\n"
+        "- Lines marked '[Team note — internal observation...]': these are notes written by the team describing the client or their situation. Treat them as direct facts about the customer, not as part of any conversation.\n\n"
         "Output format (exactly these four lines):\n"
         "1. Situation: <one sentence on overall context>\n"
         "2. Customer Needs: <one sentence on what the customer needs/wants>\n"
         "3. Latest Requests: <one sentence on latest actionable requests/questions>\n"
         "4. Recommended Next Step: <one sentence on what you should do next>\n\n"
-        "Constraints: maximum 4 sentences total, plain text only, no extra headings, no bullets, no invented facts."
+        "Constraints: maximum 4 sentences total, plain text only, no extra headings, no bullets, no invented facts. "
+        "Ignore opaque alphanumeric strings that have no plain-language meaning (part numbers, serial numbers, API keys, reference codes, UUIDs, hashes, etc.) — do not include or mention them."
     )
 
 CUSTOMER_PROFILE_PROMPT = (
     "Write a brief, single-sentence customer profile based on the messages. "
     "Focus on their role, industry, or key characteristic. Be concise and factual. "
-    "Do not include any numbering or formatting. Just one clear sentence."
+    "Do not include any numbering or formatting. Just one clear sentence. "
+    "Ignore opaque alphanumeric strings that have no plain-language meaning (part numbers, serial numbers, API keys, reference codes, UUIDs, hashes, etc.)."
 )
 
 PROFILE_NOTES_MESSAGE_LIMIT = 10
@@ -131,7 +137,10 @@ def _format_messages(messages: list[Any]) -> str:
             getattr(m, "content", None) or
             "[Attachment]"
         )
-        lines.append(f"{sender}: {text}")
+        if sender == "Team note":
+            lines.append(f"[Team note — internal observation about the client or relationship, not part of the conversation]: {text}")
+        else:
+            lines.append(f"{sender}: {text}")
     return "\n".join(lines)
 
 
@@ -145,11 +154,15 @@ def _update_profile_notes(existing_profile_notes: str, messages: list[Any]) -> s
         "You maintain a running customer profile for CRM usage. "
         "Be lenient about adding potentially useful information from recent messages, even if it seems minor. "
         "Never remove existing valid facts unless clearly contradicted.\n\n"
+        "Input may contain two types of entries:\n"
+        "- Regular conversation messages between the team and the customer.\n"
+        "- Lines marked '[Team note — internal observation...]': these are notes written by the team describing the client or their situation. Treat them as direct facts about the customer, not as part of any conversation.\n\n"
         "Output rules:\n"
         "- If there is no relevant new information, output exactly: __UNCHANGED__\n"
         "- Otherwise output the FULL updated profile notes in plain text\n"
         "- Keep existing facts and append new facts\n"
-        "- Do not invent facts\n\n"
+        "- Do not invent facts\n"
+        "- Ignore opaque alphanumeric strings that have no plain-language meaning (part numbers, serial numbers, API keys, reference codes, UUIDs, hashes, etc.)\n\n"
         f"Existing profile notes:\n{existing_profile_notes}\n\n"
         f"Recent messages:\n{recent_text}"
     )
@@ -209,6 +222,11 @@ def _process_batch(row: dict) -> None:
     tenant = get_tenant(tenant_id)
     username = (tenant or {}).get("username") or "you"
 
+    if is_customer_deleted(customer_id):
+        print(f"Customer id={customer_id} is deleted — marking processed and skipping")
+        mark_batch_processed(batch_id)
+        return
+
     existing = get_customer(tenant_id, customer_id)
     if existing is None:
         print(f"Customer id={customer_id} not found — marking processed and skipping")
@@ -224,7 +242,8 @@ def _process_batch(row: dict) -> None:
         mark_batch_processed(batch_id)
         return
 
-    print(f"Processing batch_id={batch_id} for customer '{name}' (id={customer_id}) …")
+    start = datetime.now(timezone.utc)
+    print(f"[{start.strftime('%Y-%m-%d %H:%M:%S')}] Processing batch_id={batch_id} for customer '{name}' (id={customer_id}) …")
 
     existing_summary = str(existing.get("summary") or "")
     existing_profile_notes = str(existing.get("profile_notes") or "")
@@ -248,8 +267,9 @@ def _process_batch(row: dict) -> None:
     upsert_customer_payload(tenant_id, updated)
     mark_batch_processed(batch_id)
 
+    elapsed = (datetime.now(timezone.utc) - start).total_seconds()
     changed = updated_summary != existing_summary
-    print(f"Done — customer '{name}' {'summary updated' if changed else 'no summary change'}")
+    print(f"Done — customer '{name}' {'summary updated' if changed else 'no summary change'} ({elapsed:.1f}s)")
 
 
 def poll_once() -> bool:
@@ -267,13 +287,11 @@ def poll_once() -> bool:
 def main() -> None:
     print(
         f"Processing raw messages every {POLL_INTERVAL_SECONDS}s | "
-        f"tenant={TENANT_ID} | model={OLLAMA_MODEL}"
+        f"all tenants | model={OLLAMA_MODEL}"
     )
     while True:
         try:
-            found = poll_once()
-            if not found:
-                print("Queue empty.")
+            poll_once()
         except KeyboardInterrupt:
             print("Stopped.")
             break

@@ -2,9 +2,10 @@
 var _userName = '';
 var _supabaseClient = null;
 var _authToken = null;
-var _settings = { hide_personal_contacts: false };
+var _settings = { hide_personal_contacts: false, voice_note_append_to_notes: true };
 var _searchSelectedIdx = -1;
 var _leadsById = {};
+var _customerTagsByLeadId = {};
 var _tenantTags = [];
 var _clientModalTagIds = [];
 var _clientModalPinned = false;
@@ -15,6 +16,9 @@ var _fpEventTime = null;
 var _dealsById = {};
 var _typewriterTimer = null;
 var _dashView = 'grid';
+var _filterQuery = '';
+var _filterStatuses = [];
+var _filterTagIds = [];
 
 // ---- Dashboard view toggle ----
 function toggleDashView(mode) {
@@ -200,6 +204,7 @@ function showPage(pageId) {
     if (mobileActiveIcon) mobileActiveIcon.style.fontVariationSettings = "'FILL' 1";
   }
   if (pageId === 'page-home') startTypewriter();
+  if (pageId === 'page-settings') loadTagSettings();
 }
 
 function showClientDetail(id) {
@@ -224,6 +229,8 @@ async function loadSettings() {
     _settings = data;
     var btn = document.getElementById('toggle-hide-personal-contacts');
     if (btn) _applyToggleState(btn, !!data.hide_personal_contacts);
+    var vnBtn = document.getElementById('toggle-voice-note-append');
+    if (vnBtn) _applyToggleState(vnBtn, data.voice_note_append_to_notes !== false);
     if (data.display_name) {
       _userName = data.display_name;
       var nameEl = document.getElementById('settings-name');

@@ -12,19 +12,25 @@ from database import (
     create_deal,
     create_tag,
     delete_customer_event,
+    delete_tag,
     get_all_customer_events,
+    get_customer,
     get_customer_events,
     get_customer_tags,
     get_tags_for_tenant,
     get_tenant,
     initialize_database,
+    insert_raw_message_batch,
     load_customer_tags_for_tenant,
     load_customers_for_tenant,
     load_deals_for_tenant,
+    queue_customer_refresh,
     resolve_tenant_id_by_supabase_user_id,
     set_customer_tags,
+    soft_delete_customer,
     update_customer,
     update_deal,
+    update_tag,
     update_tenant_settings,
 )
 from supabase_client import SUPABASE_URL
@@ -130,6 +136,14 @@ def _tenant_id_for_request(handler: SimpleHTTPRequestHandler) -> str | None:
 
 
 class AppHandler(SimpleHTTPRequestHandler):
+    def end_headers(self) -> None:
+        parsed_path = urlparse(self.path).path
+        if not parsed_path.startswith("/api/"):
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
+        super().end_headers()
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
@@ -163,6 +177,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 tenant = get_tenant(tenant_id)
                 _json_response(self, 200, {
                     "hide_personal_contacts": bool((tenant or {}).get("hide_personal_contacts", False)),
+                    "voice_note_append_to_notes": bool((tenant or {}).get("voice_note_append_to_notes", True)),
                     "username": (tenant or {}).get("username") or "",
                     "display_name": (tenant or {}).get("display_name") or "",
                 })
@@ -284,6 +299,34 @@ class AppHandler(SimpleHTTPRequestHandler):
                 _json_response(self, 500, {"error": str(exc)})
             return
 
+        if path.startswith("/api/tags/"):
+            tag_id_str = path[len("/api/tags/"):]
+            try:
+                tag_id = int(tag_id_str)
+            except ValueError:
+                _json_response(self, 400, {"error": "Invalid tag id"})
+                return
+            try:
+                delete_tag(tenant_id, tag_id)
+                _json_response(self, 200, {"ok": True})
+            except Exception as exc:
+                _json_response(self, 500, {"error": str(exc)})
+            return
+
+        if path.startswith("/api/leads/"):
+            customer_id_str = path[len("/api/leads/"):]
+            try:
+                customer_id = int(customer_id_str)
+            except ValueError:
+                _json_response(self, 400, {"error": "Invalid customer id"})
+                return
+            try:
+                soft_delete_customer(tenant_id, customer_id)
+                _json_response(self, 200, {"ok": True})
+            except Exception as exc:
+                _json_response(self, 500, {"error": str(exc)})
+            return
+
         _json_response(self, 404, {"error": "Not found"})
 
     def do_PATCH(self) -> None:
@@ -297,6 +340,29 @@ class AppHandler(SimpleHTTPRequestHandler):
 
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+
+        # PATCH /api/tags/<id>
+        if path.startswith("/api/tags/"):
+            tag_id_str = path[len("/api/tags/"):]
+            try:
+                tag_id = int(tag_id_str)
+            except ValueError:
+                _json_response(self, 400, {"error": "Invalid tag id"})
+                return
+            name = (body.get("name") or "").strip()
+            if not name:
+                _json_response(self, 400, {"error": "name required"})
+                return
+            color = body.get("color") or None
+            try:
+                tag = update_tag(tenant_id, tag_id, name, color)
+                if tag is None:
+                    _json_response(self, 404, {"error": "Tag not found"})
+                else:
+                    _json_response(self, 200, {"tag": tag})
+            except Exception as exc:
+                _json_response(self, 500, {"error": str(exc)})
+            return
 
         # PATCH /api/settings
         if path == "/api/settings":
@@ -400,7 +466,8 @@ class AppHandler(SimpleHTTPRequestHandler):
                 if not name:
                     _json_response(self, 400, {"error": "name required"})
                     return
-                tag = create_tag(tenant_id, name)
+                color = body.get("color") or None
+                tag = create_tag(tenant_id, name, color)
                 _json_response(self, 201, {"tag": tag})
             except Exception as exc:
                 _json_response(self, 500, {"error": str(exc)})
@@ -410,6 +477,24 @@ class AppHandler(SimpleHTTPRequestHandler):
             try:
                 row = create_deal(tenant_id, body)
                 _json_response(self, 201, {"deal": row})
+            except Exception as exc:
+                _json_response(self, 500, {"error": str(exc)})
+            return
+
+        if path.startswith("/api/leads/") and path.endswith("/refresh"):
+            parts = path.split("/")
+            try:
+                customer_id = int(parts[3])
+            except (IndexError, ValueError):
+                _json_response(self, 400, {"error": "Invalid customer id"})
+                return
+            try:
+                updated = queue_customer_refresh(tenant_id, customer_id)
+                if updated is None:
+                    _json_response(self, 404, {"error": "Customer not found"})
+                    return
+                print(f"Refresh queued for customer id={customer_id}")
+                _json_response(self, 200, {"ok": True, "queued": True, "customer": updated})
             except Exception as exc:
                 _json_response(self, 500, {"error": str(exc)})
             return
@@ -434,6 +519,63 @@ class AppHandler(SimpleHTTPRequestHandler):
                 _json_response(self, 201, {"event": row})
             except Exception as exc:
                 _json_response(self, 500, {"error": str(exc)})
+            return
+
+        if path.startswith("/api/leads/") and path.endswith("/voice-note"):
+            parts = path.split("/")
+            try:
+                customer_id = int(parts[3])
+            except (IndexError, ValueError):
+                _json_response(self, 400, {"error": "Invalid customer id"})
+                return
+            try:
+                import base64, tempfile, threading as _threading
+                audio_bytes = base64.b64decode(body["audio_b64"])
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
+                    tmp.write(audio_bytes)
+                    tmp_path = tmp.name
+            except Exception as exc:
+                _json_response(self, 400, {"error": f"Bad request: {exc}"})
+                return
+
+            # Respond immediately — all processing happens in background
+            _json_response(self, 200, {"ok": True})
+
+            def _bg(tmp_path=tmp_path, customer_id=customer_id, tenant_id=tenant_id):
+                import os
+                try:
+                    from transcribe import transcribe_audio
+                    from datetime import datetime, timezone
+
+                    transcription = transcribe_audio(tmp_path)
+                    if not transcription:
+                        return
+
+                    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                    tenant = get_tenant(tenant_id) or {}
+                    if tenant.get("voice_note_append_to_notes", True):
+                        existing = get_customer(tenant_id, customer_id) or {}
+                        old_notes = (existing.get("notes") or "").rstrip()
+                        new_notes = (old_notes + "\n\n" if old_notes else "") + f"[Voice note {ts}]: {transcription}"
+                        update_customer(tenant_id, customer_id, {"notes": new_notes})
+
+                    # Queue LLM processing alongside regular messages
+                    batch_id = insert_raw_message_batch(
+                        tenant_id=tenant_id,
+                        customer_id=customer_id,
+                        messages=[{"sender": "Team note", "text": transcription}],
+                        latest_message_id=f"voice-note-{ts}-{customer_id}",
+                    )
+                    print(f"Voice note queued as batch_id={batch_id} for customer id={customer_id}")
+                except Exception as exc:
+                    print(f"Voice note background processing failed: {exc}")
+                finally:
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        pass
+
+            _threading.Thread(target=_bg, daemon=True).start()
             return
 
         _json_response(self, 404, {"error": "Not found"})

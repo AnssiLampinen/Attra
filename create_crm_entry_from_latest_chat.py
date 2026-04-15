@@ -11,7 +11,7 @@ from database import (
     upsert_customer_payload,
 )
 from fetch_latest_private_chat_messages import MESSAGE_LIMIT, _call_ollama, _format_messages, summarize_with_ollama
-from test import (
+from beeper_client import (
     _chat_id,
     _chat_sort_key,
     _chat_title,
@@ -165,7 +165,7 @@ def _contact_metadata(chat: Any, messages: list[Any]) -> Dict[str, str]:
         if full_name:
             contact["name"] = full_name
 
-        username_candidate = _to_username_slug(username) or _to_username_slug(full_name or "")
+        username_candidate = _to_username_slug(username)
         if username_candidate:
             contact["handle"] = username_candidate
 
@@ -193,11 +193,6 @@ def _contact_metadata(chat: Any, messages: list[Any]) -> Dict[str, str]:
             if sender_slug:
                 contact["handle"] = sender_slug
                 break
-
-    if _looks_numeric(contact["handle"]):
-        name_slug = _to_username_slug(contact["name"])
-        if name_slug:
-            contact["handle"] = name_slug
 
     if not contact["network"]:
         contact["network"] = _chat_network(chat)

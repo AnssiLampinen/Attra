@@ -1,5 +1,13 @@
 // Deal and client modal workflows split out of app.js.
 
+// Voice note state
+var _voiceMediaRecorder = null;
+var _voiceChunks = [];
+var _voiceBlob = null;
+var _voiceTimerInterval = null;
+var _voiceSeconds = 0;
+var _voiceRecording = false;
+
 function _dealModalSetClientMode(isNew) {
   document.getElementById('deal-modal-client').classList.toggle('hidden', isNew);
   document.getElementById('deal-modal-client-select').classList.toggle('hidden', !isNew);
@@ -8,10 +16,10 @@ function _dealModalSetClientMode(isNew) {
 function _populateClientSelect() {
   var sel = document.getElementById('deal-modal-client-select');
   sel.innerHTML = '<option value="">\u2014 Select client \u2014</option>';
-  Object.values(_leadsById).sort(function(a, b) { return (a.name || '').localeCompare(b.name || ''); }).forEach(function(lead) {
+  Object.values(_leadsById).filter(function(l) { return !_isDeleted(l); }).sort(function(a, b) { return (a.display_name || a.name || '').localeCompare(b.display_name || b.name || ''); }).forEach(function(lead) {
     var opt = document.createElement('option');
     opt.value = lead.id;
-    opt.textContent = lead.name || ('ID ' + lead.id);
+    opt.textContent = lead.display_name || lead.name || ('ID ' + lead.id);
     sel.appendChild(opt);
   });
 }
@@ -108,12 +116,17 @@ function openNewClientModal() {
   _clientModalPinned = false;
   var pinBtn = document.getElementById('client-modal-pin-btn');
   if (pinBtn) pinBtn.classList.add('hidden');
+  var refreshBtn = document.getElementById('client-modal-refresh-btn');
+  if (refreshBtn) refreshBtn.classList.add('hidden');
+  var delBtn = document.getElementById('client-modal-delete-btn');
+  if (delBtn) delBtn.classList.add('hidden');
   _clientModalTagIds = [];
   _renderTagPills();
   _clientModalEvents = [];
   _renderClientEvents();
   cancelEventForm();
   document.getElementById('client-modal-events-section').classList.add('hidden');
+  _voiceResetPanel();
   document.getElementById('client-modal').classList.remove('hidden');
 }
 
@@ -155,7 +168,7 @@ async function toggleModalPin() {
 async function openClientModal(lead) {
   document.getElementById('client-modal-heading').textContent = 'Client Details';
   document.getElementById('client-modal-id').value = lead.id;
-  document.getElementById('client-modal-name').value = lead.name || '';
+  document.getElementById('client-modal-name').value = lead.display_name || lead.name || '';
   document.getElementById('client-modal-status').value = lead.status || '';
   document.getElementById('client-modal-phone').value = lead.phone || '';
   document.getElementById('client-modal-email').value = lead.email || '';
@@ -169,6 +182,10 @@ async function openClientModal(lead) {
   document.getElementById('client-modal-status-msg').textContent = '';
   _clientModalPinned = lead.pinned || false;
   _updatePinBtn(_clientModalPinned);
+  var refreshBtn = document.getElementById('client-modal-refresh-btn');
+  if (refreshBtn) refreshBtn.classList.remove('hidden');
+  var delBtn = document.getElementById('client-modal-delete-btn');
+  if (delBtn) delBtn.classList.remove('hidden');
   _clientModalTagIds = [];
   _renderTagPills();
   _clientModalEvents = [];
@@ -287,7 +304,29 @@ async function deleteClientEvent(eventId) {
   }
 }
 
+async function refreshClient() {
+  var id = document.getElementById('client-modal-id').value;
+  if (!id) return;
+  var msg = document.getElementById('client-modal-status-msg');
+  var btn = document.getElementById('client-modal-refresh-btn');
+  msg.textContent = 'Queuing refresh\u2026';
+  if (btn) btn.disabled = true;
+  try {
+    var res = await fetch('/api/leads/' + id + '/refresh', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + _authToken },
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    msg.textContent = 'Queued \u2014 summary will update after next ingest cycle.';
+  } catch (e) {
+    msg.textContent = 'Error: ' + e.message;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 function closeClientModal() {
+  _voiceResetPanel();
   document.getElementById('client-modal').classList.add('hidden');
 }
 
@@ -296,7 +335,7 @@ async function saveClient() {
   var isNew = !id;
   var msg = document.getElementById('client-modal-status-msg');
   var payload = {
-    name: document.getElementById('client-modal-name').value,
+    display_name: document.getElementById('client-modal-name').value,
     status: document.getElementById('client-modal-status').value,
     phone: document.getElementById('client-modal-phone').value,
     email: document.getElementById('client-modal-email').value,
@@ -307,6 +346,7 @@ async function saveClient() {
     instagram_id: document.getElementById('client-modal-instagram').value,
     signal_id: document.getElementById('client-modal-signal').value,
   };
+  if (isNew) payload.name = document.getElementById('client-modal-name').value;
   msg.textContent = 'Saving\u2026';
   try {
     var res = await fetch(isNew ? '/api/leads' : '/api/leads/' + id, {
@@ -328,9 +368,114 @@ async function saveClient() {
     }).filter(Boolean);
     _customerTagsByLeadId[customerId] = tagNames;
     msg.textContent = isNew ? 'Created.' : 'Saved.';
+    if (_voiceBlob && !isNew) {
+      var blobToSend = _voiceBlob;
+      _voiceBlob = null;
+      blobToSend.arrayBuffer().then(function(buf) {
+        var bytes = new Uint8Array(buf);
+        var binary = '';
+        bytes.forEach(function(b) { binary += String.fromCharCode(b); });
+        fetch('/api/leads/' + customerId + '/voice-note', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + _authToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audio_b64: btoa(binary) })
+        });
+      });
+    }
     setTimeout(closeClientModal, 600);
     loadAllLeadData();
   } catch (e) {
     msg.textContent = 'Error: ' + e.message;
   }
+}
+
+async function deleteClient() {
+  var id = document.getElementById('client-modal-id').value;
+  if (!id) return;
+  if (!confirm('Delete this contact?')) return;
+  var msg = document.getElementById('client-modal-status-msg');
+  try {
+    var res = await fetch('/api/leads/' + id, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + _authToken },
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    closeClientModal();
+    loadAllLeadData();
+  } catch (e) {
+    msg.textContent = 'Error: ' + e.message;
+  }
+}
+
+// ── Voice note recording ──────────────────────────────────────────────────────
+
+function _voiceResetPanel() {
+  _voiceStopCleanup();
+  _voiceBlob = null;
+  var panel = document.getElementById('voice-note-panel');
+  var btn = document.getElementById('voice-note-btn');
+  var timer = document.getElementById('voice-note-timer');
+  var ready = document.getElementById('voice-note-ready');
+  if (panel) panel.classList.add('hidden');
+  if (btn) btn.classList.remove('hidden');
+  if (timer) timer.textContent = '0:00';
+  if (ready) ready.classList.add('hidden');
+}
+
+function startVoiceNote() {
+  document.getElementById('voice-note-panel').classList.remove('hidden');
+  document.getElementById('voice-note-btn').classList.add('hidden');
+}
+
+function cancelVoiceNote() {
+  _voiceResetPanel();
+}
+
+function toggleVoiceRecording() {
+  if (_voiceRecording) { _voiceStopRecording(); } else { _voiceStartRecording(); }
+}
+
+async function _voiceStartRecording() {
+  try {
+    var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    _voiceChunks = []; _voiceSeconds = 0; _voiceRecording = true; _voiceBlob = null;
+    document.getElementById('voice-note-ready').classList.add('hidden');
+    _voiceMediaRecorder = new MediaRecorder(stream);
+    _voiceMediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) _voiceChunks.push(e.data); };
+    _voiceMediaRecorder.onstop = function() {
+      _voiceBlob = new Blob(_voiceChunks, { type: 'audio/webm' });
+      _voiceChunks = [];
+      document.getElementById('voice-note-ready').classList.remove('hidden');
+    };
+    _voiceMediaRecorder.start(250);
+    document.getElementById('voice-note-record-icon').textContent = 'stop';
+    document.getElementById('voice-note-record-label').textContent = 'Stop';
+    document.getElementById('voice-note-record-btn').classList.replace('bg-error', 'bg-secondary');
+    _voiceTimerInterval = setInterval(function() {
+      _voiceSeconds++;
+      var m = Math.floor(_voiceSeconds / 60), s = _voiceSeconds % 60;
+      document.getElementById('voice-note-timer').textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    }, 1000);
+  } catch (e) {
+    alert('Microphone error: ' + e.message);
+  }
+}
+
+function _voiceStopRecording() {
+  if (_voiceMediaRecorder && _voiceMediaRecorder.state !== 'inactive') {
+    _voiceMediaRecorder.stop();
+    _voiceMediaRecorder.stream.getTracks().forEach(function(t) { t.stop(); });
+  }
+  _voiceStopCleanup();
+}
+
+function _voiceStopCleanup() {
+  _voiceRecording = false;
+  clearInterval(_voiceTimerInterval); _voiceTimerInterval = null;
+  var icon = document.getElementById('voice-note-record-icon');
+  var label = document.getElementById('voice-note-record-label');
+  var btn = document.getElementById('voice-note-record-btn');
+  if (icon) icon.textContent = 'fiber_manual_record';
+  if (label) label.textContent = 'Record';
+  if (btn) btn.classList.replace('bg-secondary', 'bg-error');
 }
