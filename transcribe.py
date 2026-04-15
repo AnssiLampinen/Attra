@@ -1,14 +1,25 @@
 """
-transcribe.py — local audio transcription via faster-whisper.
+transcribe.py
 
-Dependency: pip install faster-whisper
-ffmpeg must be on PATH (needed to decode .webm from MediaRecorder).
-  Windows: winget install ffmpeg
-  macOS:   brew install ffmpeg
-  Linux:   apt install ffmpeg
+Local audio transcription using faster-whisper. Imported by app_server.py
+to process voice notes recorded in the browser — not a runnable script.
 
-Set env var WHISPER_MODEL=tiny|base|small|medium to override the model.
-The model (~74 MB for 'base') is downloaded on first call to ~/.cache/huggingface/hub.
+The WhisperModel is loaded lazily on the first call and cached in memory
+for the lifetime of the process (avoids ~2 s reload per request). A
+threading.Lock serialises concurrent calls because CTranslate2 (the
+inference backend) is not safe for simultaneous use on the same model
+instance; concurrent voice notes from multiple users queue up safely.
+
+Accepts any audio format that ffmpeg understands (.webm from MediaRecorder,
+plus .mp4, .wav, .mp3, .ogg, etc.). ffmpeg must be on PATH.
+
+Model size is controlled by the WHISPER_MODEL env var (default: "base",
+~74 MB). Options: tiny | base | small | medium. The model is downloaded
+automatically to ~/.cache/huggingface/hub on first use.
+
+Exports:
+  transcribe_audio(file_path) — transcribes the file and returns plain text,
+                                 or an empty string if no speech is detected
 """
 
 import os

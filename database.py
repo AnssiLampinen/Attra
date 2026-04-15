@@ -1,3 +1,52 @@
+"""
+database.py
+
+All Supabase query functions used across the project. Imported by every
+runnable script — not a runnable script itself.
+
+Functional areas:
+
+  Tenants
+    initialize_database()       — ensures a default tenant exists on first run
+    create_tenant(...)          — creates a new tenant row
+    get_tenant(tenant_id)       — fetches tenant settings dict
+    update_tenant_settings(...) — patches allowed fields on the tenants row
+    resolve_tenant_id_by_api_key(key)
+    resolve_tenant_id_by_supabase_user_id(uid)
+
+  Customers
+    create_customer / update_customer / upsert_customer_payload
+    load_customers_for_tenant   — full list for the UI
+    find_customer(...)          — lookup by name + network identifiers
+    get_customer(tenant_id, id) — single customer by ID
+    soft_delete_customer(...)   — sets status to 'deleted'
+    is_customer_deleted(id)
+    queue_customer_refresh(...) — sets needs_refresh flag + clears AI fields
+    clear_customer_needs_refresh(...)
+    get_recent_messages_for_customer(...)
+
+  Deals
+    create_deal / update_deal / load_deals_for_tenant
+
+  Tags
+    create_tag / update_tag / delete_tag
+    get_tags_for_tenant
+    get_customer_tags / set_customer_tags / load_customer_tags_for_tenant
+
+  Events (timeline entries)
+    create_customer_event / delete_customer_event
+    get_customer_events / get_all_customer_events
+
+  Raw messages (staging queue)
+    insert_raw_message_batch(...)   — creates a new batch for the LLM worker
+    append_messages_to_batch(...)   — merges new messages into a pending batch
+    find_pending_batch_for_customer(...) — checks for an existing open batch
+    fetch_oldest_unprocessed_batch() — used by process_raw_messages.py
+    mark_batch_processing(id)       — locks a batch to prevent double-processing
+    mark_batch_processed(id)        — marks completion
+    get_latest_ingested_message_id(...)
+"""
+
 import os
 import secrets
 from dataclasses import asdict

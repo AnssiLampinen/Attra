@@ -1,116 +1,107 @@
--- Tenants table
-CREATE TABLE tenants (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    username TEXT,                             -- used in AI prompt addressing, e.g. "Anssi" (Beeper name)
-    display_name TEXT,                         -- shown on the site (greeting, profile header)
-    api_key TEXT NOT NULL UNIQUE,
-    supabase_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    hide_personal_contacts BOOLEAN NOT NULL DEFAULT FALSE
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.customer_events (
+  id bigint NOT NULL DEFAULT nextval('customer_events_id_seq'::regclass),
+  tenant_id text NOT NULL,
+  customer_id bigint NOT NULL,
+  title text NOT NULL,
+  event_date date NOT NULL,
+  event_time time without time zone,
+  duration_minutes integer,
+  notes text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT customer_events_pkey PRIMARY KEY (id),
+  CONSTRAINT customer_events_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id),
+  CONSTRAINT customer_events_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id)
 );
-
--- Customers table
-CREATE TABLE customers (
-    id BIGSERIAL PRIMARY KEY,
-    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    name TEXT,
-    phone TEXT,
-    email TEXT,
-    status TEXT DEFAULT 'unknown',
-    summary TEXT,
-    notes TEXT,                 -- tenant-written manual notes
-    profile_notes TEXT,         -- LLM-maintained context (internal)
-    customer_profile TEXT,
-    last_processed_message_id TEXT,
-    last_updated_at TIMESTAMPTZ,
-    whatsapp_id TEXT,
-    instagram_id TEXT,
-    messenger_id TEXT,
-    telegram_id TEXT,
-    signal_id TEXT,
-    twitter_id TEXT,
-    linkedin_id TEXT,
-    slack_id TEXT,
-    discord_id TEXT,
-    google_messages_id TEXT,
-    google_chat_id TEXT,
-    google_voice_id TEXT,
-    pinned BOOLEAN NOT NULL DEFAULT FALSE
+CREATE TABLE public.customer_tags (
+  customer_id bigint NOT NULL,
+  tag_id bigint NOT NULL,
+  CONSTRAINT customer_tags_pkey PRIMARY KEY (customer_id, tag_id),
+  CONSTRAINT customer_tags_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
+  CONSTRAINT customer_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES public.tags(id)
 );
-
--- Index for fast tenant lookups
-CREATE INDEX idx_customers_tenant_id ON customers(tenant_id);
-
--- Raw messages staging table
--- Beeper ingestion devices write here; the LLM processor reads and clears the queue.
--- Rows are linked to a specific customer by id (not phone/name) so two tenants
--- with the same real-world person each have their own independent customer record.
-CREATE TABLE raw_messages (
-    id BIGSERIAL PRIMARY KEY,
-    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    customer_id BIGINT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-    messages JSONB NOT NULL,               -- serialized message batch; cleared to [] before deletion
-    latest_message_id TEXT NOT NULL,       -- id of the newest message in the batch
-    fetched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    processed BOOLEAN NOT NULL DEFAULT FALSE,
-    processed_at TIMESTAMPTZ,
-    processing BOOLEAN NOT NULL DEFAULT FALSE  -- TRUE while LLM is running; ingest will not append
+CREATE TABLE public.customers (
+  id bigint NOT NULL DEFAULT nextval('customers_id_seq'::regclass),
+  tenant_id text NOT NULL,
+  name text,
+  phone text,
+  email text,
+  status text DEFAULT 'unknown'::text,
+  summary text,
+  profile_notes text,
+  customer_profile text,
+  last_processed_message_id text,
+  last_updated_at timestamp with time zone,
+  whatsapp_id text,
+  instagram_id text,
+  messenger_id text,
+  telegram_id text,
+  signal_id text,
+  twitter_id text,
+  linkedin_id text,
+  slack_id text,
+  discord_id text,
+  google_messages_id text,
+  google_chat_id text,
+  google_voice_id text,
+  notes text,
+  pinned boolean NOT NULL DEFAULT false,
+  needs_refresh boolean NOT NULL DEFAULT false,
+  display_name text,
+  CONSTRAINT customers_pkey PRIMARY KEY (id),
+  CONSTRAINT customers_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id)
 );
-
--- Only index rows that are waiting to be picked up (not processing, not processed)
-CREATE INDEX idx_raw_messages_unprocessed ON raw_messages (tenant_id, processed, processing)
-    WHERE processed = FALSE AND processing = FALSE;
-CREATE INDEX idx_raw_messages_customer ON raw_messages (customer_id);
-
--- Deals table (dealflow pipeline)
-CREATE TABLE deals (
-    id BIGSERIAL PRIMARY KEY,
-    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    customer_id BIGINT REFERENCES customers(id) ON DELETE SET NULL,
-    title TEXT NOT NULL,
-    description TEXT,
-    amount NUMERIC(14, 2),          -- EUR
-    status TEXT NOT NULL DEFAULT 'lead',
-    -- status values: lead, qualified, proposal, negotiation, won, lost
-    expected_close_date DATE,
-    closed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+CREATE TABLE public.deals (
+  id bigint NOT NULL DEFAULT nextval('deals_id_seq'::regclass),
+  tenant_id text NOT NULL,
+  customer_id bigint,
+  title text NOT NULL,
+  description text,
+  amount numeric,
+  status text NOT NULL DEFAULT 'lead'::text,
+  expected_close_date date,
+  closed_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT deals_pkey PRIMARY KEY (id),
+  CONSTRAINT deals_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id),
+  CONSTRAINT deals_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id)
 );
-
-CREATE INDEX idx_deals_tenant_id ON deals(tenant_id);
-CREATE INDEX idx_deals_customer_id ON deals(customer_id);
-CREATE INDEX idx_deals_status ON deals(tenant_id, status);
-
--- Tags (tenant-defined labels for customers)
-CREATE TABLE tags (
-    id BIGSERIAL PRIMARY KEY,
-    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    UNIQUE(tenant_id, name)
+CREATE TABLE public.raw_messages (
+  id bigint NOT NULL DEFAULT nextval('raw_messages_id_seq'::regclass),
+  tenant_id text NOT NULL,
+  customer_id bigint NOT NULL,
+  messages jsonb NOT NULL,
+  latest_message_id text NOT NULL,
+  fetched_at timestamp with time zone NOT NULL DEFAULT now(),
+  processed boolean NOT NULL DEFAULT false,
+  processed_at timestamp with time zone,
+  processing boolean NOT NULL DEFAULT false,
+  CONSTRAINT raw_messages_pkey PRIMARY KEY (id),
+  CONSTRAINT raw_messages_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id),
+  CONSTRAINT raw_messages_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id)
 );
-CREATE INDEX idx_tags_tenant_id ON tags(tenant_id);
-
--- Customer ↔ tag many-to-many
-CREATE TABLE customer_tags (
-    customer_id BIGINT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-    tag_id BIGINT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-    PRIMARY KEY (customer_id, tag_id)
+CREATE TABLE public.tags (
+  id bigint NOT NULL DEFAULT nextval('tags_id_seq'::regclass),
+  tenant_id text NOT NULL,
+  name text NOT NULL,
+  color text,
+  CONSTRAINT tags_pkey PRIMARY KEY (id),
+  CONSTRAINT tags_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id)
 );
-
--- Scheduled events per customer
-CREATE TABLE customer_events (
-    id BIGSERIAL PRIMARY KEY,
-    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    customer_id BIGINT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-    title TEXT NOT NULL,
-    event_date DATE NOT NULL,
-    event_time TIME,
-    duration_minutes INTEGER,
-    notes TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+CREATE TABLE public.tenants (
+  id text NOT NULL,
+  name text NOT NULL,
+  api_key text NOT NULL UNIQUE,
+  supabase_user_id uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  username text,
+  hide_personal_contacts boolean NOT NULL DEFAULT false,
+  display_name text,
+  voice_note_append_to_notes boolean NOT NULL DEFAULT true,
+  CONSTRAINT tenants_pkey PRIMARY KEY (id),
+  CONSTRAINT tenants_supabase_user_id_fkey FOREIGN KEY (supabase_user_id) REFERENCES auth.users(id)
 );
-CREATE INDEX idx_customer_events_customer ON customer_events(customer_id);
-CREATE INDEX idx_customer_events_tenant ON customer_events(tenant_id, event_date);

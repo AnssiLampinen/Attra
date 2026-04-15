@@ -1,11 +1,33 @@
 """
 process_raw_messages.py
 
-Reads unprocessed batches from the raw_messages staging table and updates
-the corresponding customer record using the local Ollama LLM — one batch
-at a time, oldest first.
+Polling daemon that consumes the raw_messages staging table and updates
+customer records with LLM-generated summaries and profile notes.
 
-Does NOT require Beeper. Run this on any machine with Supabase + Ollama access.
+Does not require Beeper Desktop — runs on any machine with Supabase and
+Ollama access. Pairs with ingest_beeper_messages.py, which handles the
+Beeper side and stages messages without touching the LLM.
+
+Processing loop (every PROCESS_POLL_INTERVAL_SECONDS, default 5 s):
+  1. Fetch the oldest unprocessed batch from raw_messages (across all tenants)
+  2. Mark it as processing to prevent double-processing
+  3. Skip if the customer is deleted or already up to date
+  4. Call Ollama three times:
+       _update_profile_notes  — merges new facts into the running profile notes
+       _build_strict_summary  — rewrites the four-line structured summary
+       _build_customer_profile — one-sentence customer profile (only when
+                                  profile_notes actually changed)
+  5. Write all three fields back to the customers table in Supabase
+  6. Mark the batch as processed
+
+Messages from ingest_beeper_messages.py arrive as plain chat turns.
+Messages from voice notes (queued by app_server.py) arrive with
+sender="Team note" and are treated by the LLM as internal observations
+about the customer relationship rather than chat turns.
+
+The LLM prompts instruct the model to ignore opaque alphanumeric strings
+(part numbers, API keys, UUIDs, etc.) and to address the service provider
+by their configured username (ATTRA_USER_NAME).
 """
 
 import json

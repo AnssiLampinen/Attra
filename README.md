@@ -1,350 +1,242 @@
 # ATTRA CRM
 
-ATTRA is a small local CRM that pulls chats from Beeper, summarizes conversations with a local LLM through Ollama, stores leads in SQLite, and shows them in a simple web UI.
+ATTRA is a lightweight CRM that reads chats from Beeper Desktop, summarizes them with a local LLM via Ollama, stores leads in Supabase, and shows them in a simple web UI.
 
-## What this project uses
+The pipeline is split into two parts that can run on separate machines:
 
-- Python scripts for ingestion, updates, and the local web server
-- SQLite database in `crm.db`
-- Beeper Desktop API via `beeper_desktop_api`
-- Ollama for local LLM summaries
-- A static frontend in `index.html` served by `app_server.py`
+- **Beeper machine** — has Beeper Desktop installed; runs `ingest_beeper_messages.py` to pull chats and stage them in Supabase
+- **Backend machine** — has Ollama installed; runs `process_raw_messages.py` (LLM worker) and `app_server.py` (web UI)
 
-## Before you start
+Both parts can run on the same machine if preferred.
 
-You need:
+---
 
-- Windows 10 or 11
-- Administrator access for software installation
-- Internet access to download tools and models
-- A Beeper account signed in on Beeper Desktop
-- Enough RAM and disk space for the Ollama model you choose
+## Part 1 — Beeper ingest script
 
-## 1. Install the base tools
+### What it does
 
-### 1.1 Install Git
+`ingest_beeper_messages.py` polls Beeper Desktop for new private-chat messages and writes them to the `raw_messages` staging table in Supabase. No LLM is involved.
 
-Install Git for Windows from the official Git website.
+### Files needed on the Beeper machine
 
-During setup, enable the option to use Git from the command line.
+Copy these from the repo:
 
-### 1.2 Install Python 3.11 or newer
+```
+ingest_beeper_messages.py
+beeper_client.py
+database.py
+supabase_client.py
+config.py
+.env
+```
 
-Install Python from python.org.
+### Install dependencies
 
-During setup:
+```powershell
+pip install supabase beeper-desktop-api
+```
 
-- check Add python.exe to PATH
-- install for all users if possible
+### Configure `.env`
 
-After installation, open PowerShell and confirm Python works:
+```env
+BEEPER_ACCESS_TOKEN=your_beeper_access_token_here
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+CRM_TENANT_ID=your_tenant_id
+```
+
+Optional settings (shown with defaults):
+
+```env
+BEEPER_BASE_URL=http://localhost:23373
+INBOX_POLL_INTERVAL_SECONDS=20
+INBOX_NEW_CUSTOMER_MESSAGE_LIMIT=50
+INBOX_EXISTING_CUSTOMER_MESSAGE_LIMIT=10
+INBOX_SCAN_CHAT_LIMIT=100
+INBOX_MONITORED_CONVERSATIONS=5
+ATTRA_USER_NAME=you
+```
+
+### Run
+
+Make sure Beeper Desktop is open and signed in, then:
+
+```powershell
+python ingest_beeper_messages.py
+```
+
+The script polls on a loop. Stop it with `Ctrl+C`.
+
+### How to get your Beeper access token
+
+The `BEEPER_ACCESS_TOKEN` is read from the Beeper Desktop app data. Use the `beeper_desktop_api` package to retrieve it, or copy it from the app's local config files. Refer to the `beeper-desktop-api` package documentation for details.
+
+---
+
+## Part 2 — Backend (LLM worker + web UI)
+
+### What it does
+
+- `process_raw_messages.py` polls the `raw_messages` staging table, calls Ollama to generate customer summaries and action items, and updates the customer records in Supabase.
+- `app_server.py` serves the web UI and provides the REST API consumed by the frontend.
+
+### Requirements
+
+- Python 3.11 or newer
+- Ollama installed and running
+- All repo files
+
+### Install Python
+
+Install Python from python.org. During setup, check **Add python.exe to PATH**.
+
+Verify:
 
 ```powershell
 python --version
 pip --version
 ```
 
-If Python is not found, restart PowerShell or use the full path to the Python executable.
-
-### 1.3 Install Ollama
+### Install Ollama
 
 Install Ollama for Windows from ollama.com.
 
-After installation, open a new terminal and verify it responds:
+Verify:
 
 ```powershell
 ollama --version
 ```
 
-Ollama usually runs locally on:
+Ollama runs locally at `http://localhost:11434` by default.
 
-```text
-http://localhost:11434
-```
-
-### 1.4 Install Beeper Desktop
-
-Install and sign in to the Beeper Desktop app.
-
-This project does not use a public Beeper cloud API. It uses the local Beeper Desktop client through the `beeper_desktop_api` Python package.
-
-## 2. Get the project onto the computer
-
-Clone the repository into a local folder:
+### Clone the repo
 
 ```powershell
 git clone <your-repo-url>
 cd Attra
 ```
 
-If you already copied the folder, just open a terminal in the project directory.
-
-## 3. Create a Python environment
-
-Create and activate a virtual environment:
+### Create a virtual environment
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-If PowerShell blocks activation, run this once for the current window:
+If PowerShell blocks activation, run once:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process RemoteSigned
 ```
 
-Then activate the environment again.
+Then activate again.
 
-## 4. Install Python dependencies
-
-Install the package used by the Beeper integration:
+### Install Python dependencies
 
 ```powershell
-pip install beeper-desktop-api
+pip install supabase beeper-desktop-api
 ```
 
-The rest of the project mainly uses Python standard library modules.
-
-## 5. Create the local secrets file
-
-Create a file named `.env` in the project root.
-
-Use this template and fill in your own values:
+### Configure `.env`
 
 ```env
-BEEPER_ACCESS_TOKEN=your_beeper_access_token_here
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+CRM_TENANT_ID=your_tenant_id
 OLLAMA_URL=http://localhost:11434
-OLLAMA_MODEL=qwen2.5:32b
-OLLAMA_TIMEOUT_SECONDS=300
-GEMINI_API_KEY=optional_future_use_only
-```
-
-### Important notes about `.env`
-
-- Do not commit `.env` to GitHub.
-- The project loads `.env` automatically.
-- `GEMINI_API_KEY` is currently not used by the active scripts, but it is safe to keep here for future features.
-
-## 6. Download and test the LLM model
-
-The project uses Ollama for all summary generation.
-
-The default model is:
-
-```text
-qwen2.5:32b
-```
-
-That model is large and may be too slow or memory-heavy on weaker PCs.
-
-### 6.1 Pull the default model
-
-```powershell
-ollama pull qwen2.5:32b
-```
-
-### 6.2 Test the model
-
-Run the smoke test script:
-
-```powershell
-python test_ollama_model.py
-```
-
-If Ollama is working, the script should print a short response and complete successfully.
-
-## 7. If the model is too slow, switch to a smaller one
-
-If the default model does not run well on your computer, edit `.env` and change `OLLAMA_MODEL` to a smaller model.
-
-Good smaller options are:
-
-- `qwen2.5:14b`
-- `qwen2.5:7b`
-- `llama3.2:3b`
-- `phi3:mini`
-
-Example:
-
-```env
 OLLAMA_MODEL=qwen2.5:7b
+OLLAMA_TIMEOUT_SECONDS=300
+ATTRA_USER_NAME=Anssi
 ```
 
-Then pull the model:
+`BEEPER_ACCESS_TOKEN` is not needed here if this machine does not run the ingest script.
+
+### Pull the Ollama model
 
 ```powershell
 ollama pull qwen2.5:7b
 ```
 
-Then test again:
+Larger models give better summaries but are slower. Options from smallest to largest:
+
+- `llama3.2:3b` — fast, lightweight
+- `qwen2.5:7b` — good balance (recommended starting point)
+- `qwen2.5:14b`
+- `qwen2.5:32b` — best quality, needs strong hardware
+
+If the model is slow, increase `OLLAMA_TIMEOUT_SECONDS` or switch to a smaller model.
+
+### Run the LLM worker
 
 ```powershell
-python test_ollama_model.py
+python process_raw_messages.py
 ```
 
-### Tips for weak hardware
+This polls Supabase for unprocessed message batches and generates summaries. Stop with `Ctrl+C`.
 
-- Start with a smaller model first
-- Keep only one heavy app open while testing
-- Increase `OLLAMA_TIMEOUT_SECONDS` if the model is slow but still working
-- Lower model size before trying to tune code
+### Run the web server
 
-## 8. Understand the main project files
-
-- `test.py` connects to Beeper Desktop and exposes the shared chat client
-- `fetch_latest_private_chat_messages.py` pulls chat messages and asks Ollama for a summary
-- `create_crm_entry_from_latest_chat.py` creates a new CRM record from the latest unlogged chat
-- `watch_inbox_and_update_crm.py` keeps polling chats and updates existing CRM rows
-- `app_server.py` serves the UI and provides the `/api/leads` endpoint
-- `index.html` is the frontend
-- `crm.db` is the SQLite database
-
-## 9. Run the app the first time
-
-You usually want three things running:
-
-1. Ollama
-2. The local web server
-3. The inbox watcher
-
-### 9.1 Make sure Ollama is running
-
-If Ollama did not start automatically, open it or run it from another terminal.
-
-### 9.2 Start the web server
-
-In a terminal inside the project folder:
+In a separate terminal:
 
 ```powershell
 python app_server.py
 ```
 
-This serves the app at:
+Open the UI at:
 
-```text
+```
 http://127.0.0.1:8000
 ```
 
-### 9.3 Start the inbox watcher
+---
 
-Open a second terminal in the same project folder and run:
+## Typical daily workflow
 
-```powershell
-python watch_inbox_and_update_crm.py
+1. Start Beeper Desktop (signed in)
+2. Start `ingest_beeper_messages.py` on the Beeper machine
+3. Start Ollama on the backend machine
+4. Start `process_raw_messages.py`
+5. Start `app_server.py`
+6. Open `http://127.0.0.1:8000`
+
+---
+
+## Database notes
+
+- All data is stored in Supabase — no local database file needed.
+- Schema migrations are applied via the Supabase SQL editor.
+- To reset data, truncate the relevant tables in Supabase.
+
+---
+
+## Files you should not commit
+
+```
+.env
+__pycache__/
 ```
 
-This script checks chats on a schedule and updates the database with new summaries.
+---
 
-### 9.4 Create the first CRM entry
+## Troubleshooting
 
-If your database is empty, run the one-shot ingestion script once:
-
-```powershell
-python create_crm_entry_from_latest_chat.py
-```
-
-That adds a new CRM row for the newest unlogged private chat.
-
-## 10. Open the UI
-
-In a browser, open:
-
-```text
-http://127.0.0.1:8000
-```
-
-You should see the dashboard and clients list populated from the SQLite database through `/api/leads`.
-
-## 11. How Beeper integration works
-
-The project uses the Beeper Desktop Python client, not a remote REST service.
-
-In practice:
-
-- Beeper Desktop must be installed and signed in
-- The local access token must be stored in `.env`
-- `test.py` creates the shared `client` object
-- All chat-reading scripts import that shared client
-
-If Beeper data stops loading:
-
-- confirm Beeper Desktop is still signed in
-- confirm `BEEPER_ACCESS_TOKEN` is correct
-- restart the Python script
-
-## 12. Database notes
-
-- The database is SQLite, so no separate database server is required
-- `crm.db` is created and updated locally
-- The scripts automatically add missing columns when needed
-- If you want a completely fresh start, delete `crm.db` and run the ingestion script again
-
-## 13. Local files you should not commit
-
-Keep these out of GitHub unless you intentionally want to share them:
-
-- `.env`
-- `crm.db`
-- `inbox_listener_state.json`
-- `latest_private_chat_summary.txt`
-- `__pycache__` folders
-
-## 14. Troubleshooting
-
-### Python cannot import the Beeper package
-
-Run:
-
+**Python cannot import the Beeper package**
 ```powershell
 pip install beeper-desktop-api
 ```
 
-### Ollama connection fails
+**Ollama connection fails**
+Check that Ollama is running at `http://localhost:11434`.
 
-Check that Ollama is running and reachable at `http://localhost:11434`.
+**Model too slow or runs out of memory**
+Switch to a smaller `OLLAMA_MODEL` in `.env` and pull it with `ollama pull <model>`.
 
-### The model is too slow or fails on weak hardware
+**Web page loads but shows no data**
+- Confirm `app_server.py` is running.
+- Confirm `ingest_beeper_messages.py` has run and staged messages.
+- Confirm `process_raw_messages.py` has processed them.
 
-Use a smaller `OLLAMA_MODEL` value in `.env` and pull that model with Ollama.
-
-### The web page loads but shows no data
-
-Make sure:
-
-- `app_server.py` is running
-- the database exists
-- `watch_inbox_and_update_crm.py` or `create_crm_entry_from_latest_chat.py` has already added rows
-
-### PowerShell blocks script activation
-
-Run this for the current terminal session:
-
+**PowerShell blocks script activation**
 ```powershell
 Set-ExecutionPolicy -Scope Process RemoteSigned
 ```
-
-## 15. Typical daily workflow
-
-1. Start Ollama
-2. Start `app_server.py`
-3. Start `watch_inbox_and_update_crm.py`
-4. Open `http://127.0.0.1:8000`
-5. Let Beeper chats sync into `crm.db`
-
-## 16. Optional maintenance scripts
-
-- `test_ollama_model.py` — checks if the selected model is usable
-- `clear_database_entries.py` — clears local data from the database
-- `reorder_customers_columns.py` — rebuilds the customers table in a consistent column order
-
-## 17. Recommended first setup values
-
-If you want the easiest first run on a normal laptop:
-
-- `OLLAMA_MODEL=qwen2.5:7b`
-- `OLLAMA_TIMEOUT_SECONDS=300`
-- one browser window open
-- Beeper Desktop already signed in
-
-That is usually a better starting point than the default 32B model on weaker hardware.

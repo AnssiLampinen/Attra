@@ -7,19 +7,47 @@ raw_messages staging table in Supabase — without calling the LLM.
 Run this on the device that has Beeper Desktop running.
 The LLM processor (process_raw_messages.py) can run on any machine with
 Supabase + Ollama access.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RUNNING ON ANOTHER MACHINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Copy these files from the repo:
+  ingest_beeper_messages.py   ← this file
+  beeper_client.py            ← Beeper Desktop API client
+  create_crm_entry_from_latest_chat.py  ← contact metadata helpers
+  database.py                 ← Supabase query functions
+  supabase_client.py          ← Supabase client initialisation
+  config.py                   ← USER_NAME env var helper
+  .env                        ← secrets (see below)
+
+Install pip packages:
+  pip install supabase beeper-desktop-api
+
+Required .env variables:
+  BEEPER_ACCESS_TOKEN         Beeper Desktop access token
+  SUPABASE_URL                Supabase project URL
+  SUPABASE_SERVICE_ROLE_KEY   Supabase service-role key
+  CRM_TENANT_ID               Your tenant ID in Supabase
+                              (or set CRM_TENANT_API_KEY instead)
+
+Optional .env variables (shown with defaults):
+  BEEPER_BASE_URL=http://localhost:23373
+  CRM_TENANT_API_KEY          Alternative to CRM_TENANT_ID
+  INBOX_POLL_INTERVAL_SECONDS=20
+  INBOX_NEW_CUSTOMER_MESSAGE_LIMIT=50
+  INBOX_EXISTING_CUSTOMER_MESSAGE_LIMIT=10
+  INBOX_SCAN_CHAT_LIMIT=100
+  INBOX_MONITORED_CONVERSATIONS=5
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
 import os
+import re
 import time
 from datetime import datetime, timezone
 from typing import Any
 
 from config import USER_NAME  # noqa: F401 — kept for symmetry with other scripts
-from create_crm_entry_from_latest_chat import (
-    DEFAULT_STATUS,
-    _contact_metadata,
-    _network_column_values_from_metadata,
-)
 from database import (
     DEFAULT_TENANT_ID,
     append_messages_to_batch,
@@ -102,6 +130,128 @@ def _serialize_message(message: Any) -> dict:
         ),
         "is_sender": bool(_safe_get(message, "is_sender") or False),
     }
+
+
+DEFAULT_STATUS = "unknown"
+
+
+def _participants_list(chat: Any) -> list[Any]:
+    participants = _safe_get(chat, "participants")
+    if participants is None:
+        return []
+    items = _safe_get(participants, "items")
+    if isinstance(items, list):
+        return items
+    if isinstance(participants, list):
+        return participants
+    return []
+
+
+def _extract_network_and_handle(raw_id: str) -> tuple[str, str]:
+    if not isinstance(raw_id, str) or not raw_id:
+        return "", ""
+    cleaned = raw_id.strip()
+    local_part = cleaned[1:] if cleaned.startswith("@") else cleaned
+    local_part = local_part.split(":", 1)[0]
+    if "_" in local_part:
+        possible_network, handle = local_part.split("_", 1)
+        if possible_network and handle:
+            return possible_network.lower(), handle
+    return "", cleaned
+
+
+def _to_username_slug(value: str) -> str:
+    text = (value or "").strip().lower()
+    if not text:
+        return ""
+    text = re.sub(r"[^a-z0-9]+", "_", text)
+    return text.strip("_")
+
+
+def _chat_network(chat: Any) -> str:
+    for attr in ("network", "source", "platform", "service"):
+        value = _safe_get(chat, attr)
+        if isinstance(value, str) and value.strip():
+            return value.strip().lower()
+    from beeper_client import _chat_id
+    chat_id = _chat_id(chat)
+    if isinstance(chat_id, str) and ":" in chat_id:
+        return chat_id.split(":", 1)[1].split(".")[0].lower()
+    return ""
+
+
+def _contact_metadata(chat: Any, messages: list[Any]) -> dict[str, str]:
+    contact = {"name": _chat_title(chat), "phone": "", "email": "", "network": "", "handle": ""}
+    for participant in _participants_list(chat):
+        if bool(_safe_get(participant, "is_self")):
+            continue
+        username = _safe_get(participant, "username") or ""
+        participant_id = _safe_get(participant, "id") or ""
+        network, handle = _extract_network_and_handle(participant_id)
+        if network and handle:
+            contact["network"] = network
+            contact["handle"] = handle
+        full_name = _safe_get(participant, "full_name") or _safe_get(participant, "fullName")
+        if full_name:
+            contact["name"] = full_name
+        username_candidate = _to_username_slug(username)
+        if username_candidate:
+            contact["handle"] = username_candidate
+        phone = _safe_get(participant, "phone_number") or _safe_get(participant, "phoneNumber")
+        if phone:
+            contact["phone"] = phone
+        email = _safe_get(participant, "email")
+        if email:
+            contact["email"] = email
+        break
+    if not contact["network"] or not contact["handle"]:
+        for message in messages:
+            if bool(_safe_get(message, "is_sender")):
+                continue
+            sender_id = _safe_get(message, "sender_id") or ""
+            network, handle = _extract_network_and_handle(sender_id)
+            if network and handle:
+                contact["network"] = network
+                contact["handle"] = handle
+            sender_name = _safe_get(message, "sender_name") or ""
+            sender_slug = _to_username_slug(sender_name)
+            if sender_slug:
+                contact["handle"] = sender_slug
+                break
+    if not contact["network"]:
+        contact["network"] = _chat_network(chat)
+    return contact
+
+
+def _network_column_values_from_metadata(
+    contact_network: str,
+    contact_handle: str,
+    contact_phone: str,
+) -> dict[str, str]:
+    values = {
+        "whatsapp_id": "", "instagram_id": "", "messenger_id": "", "telegram_id": "",
+        "signal_id": "", "twitter_id": "", "linkedin_id": "", "slack_id": "",
+        "discord_id": "", "google_messages_id": "", "google_chat_id": "", "google_voice_id": "",
+    }
+    network_map = {
+        "whatsapp": "whatsapp_id", "instagram": "instagram_id",
+        "messenger": "messenger_id", "facebook": "messenger_id",
+        "telegram": "telegram_id", "signal": "signal_id",
+        "twitter": "twitter_id", "x": "twitter_id",
+        "linkedin": "linkedin_id", "slack": "slack_id", "discord": "discord_id",
+        "googlemessages": "google_messages_id", "google_messages": "google_messages_id",
+        "googlechat": "google_chat_id", "google_chat": "google_chat_id",
+        "googlevoice": "google_voice_id", "google_voice": "google_voice_id",
+    }
+    normalized_network = (contact_network or "").lower()
+    column = network_map.get(normalized_network)
+    if not column:
+        return values
+    if normalized_network == "whatsapp":
+        values[column] = contact_phone if contact_phone else contact_handle
+    elif contact_handle:
+        values[column] = contact_handle
+    return values
 
 
 def _fetch_all_private_chats() -> list[Any]:

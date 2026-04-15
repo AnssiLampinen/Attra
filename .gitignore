@@ -1,5 +1,4 @@
 .env
-crm.db
 inbox_listener_state.json
 latest_private_chat_summary.txt
 __pycache__/

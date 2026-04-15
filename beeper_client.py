@@ -1,3 +1,22 @@
+"""
+beeper_client.py
+
+Initialises the shared BeeperDesktop client and exposes low-level chat and
+message utilities used by the ingestion scripts. Not a runnable script.
+
+Exported names used by other scripts:
+  client               — authenticated BeeperDesktop instance
+  _items(result)       — extracts a list of items from any paged API result
+  _chat_id(chat)       — returns the stable string ID of a chat
+  _chat_title(chat)    — returns the human-readable name of a chat
+  _is_private_chat(c)  — True if the chat is a one-to-one private conversation
+  _chat_sort_key(chat) — sortable key (most recent activity first)
+  _message_sort_key(m) — sortable key for messages (chronological)
+  _find_latest_private_chat() — returns the most recently active private chat
+  _fetch_last_messages(chat, limit) — fetches up to `limit` recent messages,
+                                       handling pagination transparently
+"""
+
 import os
 
 from beeper_desktop_api import BeeperDesktop

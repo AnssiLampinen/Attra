@@ -1,3 +1,27 @@
+"""
+app_server.py
+
+ThreadingHTTPServer that serves the ATTRA web UI and its REST API on
+port 8000. All API routes live under /api/ and require a valid Supabase
+JWT in the Authorization header. Static frontend files (index.html,
+app.js, etc.) are served directly from the repo root.
+
+Does not require Beeper Desktop or Ollama — it only talks to Supabase
+and, for voice notes, to a local faster-whisper / ffmpeg installation.
+
+Key responsibilities:
+  - JWT authentication via Supabase JWKS endpoint
+  - CRUD for customers (/api/leads), deals (/api/deals), tags (/api/tags),
+    customer tags (/api/leads/<id>/tags), and events (/api/leads/<id>/events)
+  - Tenant settings read/write (/api/settings)
+  - Voice note upload (/api/leads/<id>/voice-note): decodes base64 audio,
+    transcribes it with faster-whisper in a background thread, appends the
+    transcription to the customer's notes, and queues a raw_messages batch
+    for process_raw_messages.py to pick up
+  - Cache-Control headers on all responses so Cloudflare tunnels don't
+    serve stale JS/HTML
+"""
+
 import json
 import os
 import urllib.request
