@@ -178,7 +178,7 @@ function _initDatePickers() {
 
 async function loadTenantTags() {
   try {
-    var res = await fetch('/api/tags', { headers: { 'Authorization': 'Bearer ' + _authToken } });
+    var res = await _apiFetch('GET', '/api/tags');
     if (!res.ok) return;
     var data = await res.json();
     _tenantTags = data.tags || [];
@@ -253,11 +253,7 @@ async function confirmNewTag() {
   btn.textContent = '\u2026';
   btn.disabled = true;
   try {
-    var res = await fetch('/api/tags', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
-      body: JSON.stringify({ name: name }),
-    });
+    var res = await _apiFetch('POST', '/api/tags', { name: name });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
     var tag = data.tag;
@@ -303,11 +299,7 @@ async function saveTagSettings(tagId) {
   var color = colorInput ? colorInput.value : null;
   if (!name) { if (nameInput) nameInput.focus(); return; }
   try {
-    var res = await fetch('/api/tags/' + tagId, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
-      body: JSON.stringify({ name: name, color: color }),
-    });
+    var res = await _apiFetch('PATCH', '/api/tags/' + tagId, { name: name, color: color });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
     var updated = data.tag;
@@ -325,10 +317,7 @@ async function deleteTag(tagId) {
   if (!tag) return;
   if (!confirm('Delete tag "' + tag.name + '"? It will be removed from all customers.')) return;
   try {
-    var res = await fetch('/api/tags/' + tagId, {
-      method: 'DELETE',
-      headers: { 'Authorization': 'Bearer ' + _authToken },
-    });
+    var res = await _apiFetch('DELETE', '/api/tags/' + tagId);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     _tenantTags = _tenantTags.filter(function(t) { return t.id !== tagId; });
     // Remove from customer tag mappings in memory
@@ -360,11 +349,7 @@ async function confirmNewTagFromSettings() {
   var btn = document.getElementById('settings-new-tag-confirm');
   if (btn) { btn.textContent = '\u2026'; btn.disabled = true; }
   try {
-    var res = await fetch('/api/tags', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
-      body: JSON.stringify({ name: name, color: color }),
-    });
+    var res = await _apiFetch('POST', '/api/tags', { name: name, color: color });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
     _tenantTags.push(data.tag);
@@ -792,7 +777,7 @@ function toggleLeadFilterDropdown(event, btnId) {
   var btn = document.getElementById(btnId);
   if (btn) {
     var rect = btn.getBoundingClientRect();
-    dropdown.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+    dropdown.style.top = (rect.bottom + 6) + 'px';
     var right = window.innerWidth - rect.right;
     dropdown.style.right = right + 'px';
     dropdown.style.left = 'auto';
@@ -902,8 +887,8 @@ async function loadAllLeadData() {
 
   try {
     var results = await Promise.all([
-      fetch('/api/leads', { headers: { 'Authorization': 'Bearer ' + _authToken } }),
-      fetch('/api/customer-tags', { headers: { 'Authorization': 'Bearer ' + _authToken } }),
+      _apiFetch('GET', '/api/leads'),
+      _apiFetch('GET', '/api/customer-tags'),
     ]);
     var res = results[0];
     var tagsRes = results[1];
@@ -944,7 +929,7 @@ async function loadAllLeadData() {
 
     if (activityList) {
       try {
-        var evRes = await fetch('/api/events', { headers: { 'Authorization': 'Bearer ' + _authToken } });
+        var evRes = await _apiFetch('GET', '/api/events');
         var allEvents = evRes.ok ? ((await evRes.json()).events || []) : [];
         _renderActionRequired(activityList, allEvents);
       } catch (e) {
@@ -1013,7 +998,7 @@ async function loadDeals() {
   var errorMsg = '<p class="text-sm text-error">Could not load deals.</p>';
 
   try {
-    var res = await fetch('/api/deals', { headers: { 'Authorization': 'Bearer ' + _authToken } });
+    var res = await _apiFetch('GET', '/api/deals');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
     var deals = Array.isArray(data.deals) ? data.deals : [];

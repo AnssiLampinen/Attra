@@ -32,6 +32,7 @@ import jwt
 
 from database import (
     create_customer,
+    create_feedback,
     create_customer_event,
     create_deal,
     create_tag,
@@ -47,6 +48,7 @@ from database import (
     insert_raw_message_batch,
     load_customer_tags_for_tenant,
     load_customers_for_tenant,
+    merge_customers,
     load_deals_for_tenant,
     queue_customer_refresh,
     resolve_tenant_id_by_supabase_user_id,
@@ -114,7 +116,6 @@ def _validate_jwt(token: str) -> dict | None:
 
         public_key = _get_public_key(kid, alg)
         if not public_key:
-            print(f"DEBUG: No public key found for kid={kid}")
             return None
 
         return jwt.decode(
@@ -123,11 +124,9 @@ def _validate_jwt(token: str) -> dict | None:
             algorithms=[alg],
             options={"verify_aud": False},
         )
-    except jwt.InvalidTokenError as e:
-        print(f"DEBUG: JWT validation failed: {e}")
+    except jwt.InvalidTokenError:
         return None
-    except Exception as e:
-        print(f"DEBUG: JWT validation error: {e}")
+    except Exception:
         return None
 
 
@@ -154,8 +153,6 @@ def _tenant_id_for_request(handler: SimpleHTTPRequestHandler) -> str | None:
         return None
 
     tenant_id = resolve_tenant_id_by_supabase_user_id(supabase_user_id)
-    if not tenant_id:
-        print(f"DEBUG: No tenant found for supabase_user_id={supabase_user_id}")
     return tenant_id
 
 
@@ -521,6 +518,64 @@ class AppHandler(SimpleHTTPRequestHandler):
                 _json_response(self, 200, {"ok": True, "queued": True, "customer": updated})
             except Exception as exc:
                 _json_response(self, 500, {"error": str(exc)})
+            return
+
+        if path.startswith("/api/leads/") and path.endswith("/merge"):
+            parts = path.split("/")
+            try:
+                primary_id = int(parts[3])
+            except (IndexError, ValueError):
+                _json_response(self, 400, {"error": "Invalid customer id"})
+                return
+            secondary_id = body.get("secondary_id")
+            if not secondary_id:
+                _json_response(self, 400, {"error": "secondary_id required"})
+                return
+            try:
+                secondary_id = int(secondary_id)
+            except (TypeError, ValueError):
+                _json_response(self, 400, {"error": "secondary_id must be integer"})
+                return
+            if primary_id == secondary_id:
+                _json_response(self, 400, {"error": "Cannot merge customer with itself"})
+                return
+            try:
+                primary = get_customer(tenant_id, primary_id)
+                secondary = get_customer(tenant_id, secondary_id)
+                if not primary:
+                    _json_response(self, 404, {"error": "Primary customer not found"})
+                    return
+                if not secondary:
+                    _json_response(self, 404, {"error": "Secondary customer not found"})
+                    return
+                if (primary.get("status") or "").lower() == "deleted":
+                    _json_response(self, 400, {"error": "Primary customer is deleted"})
+                    return
+                if (secondary.get("status") or "").lower() == "deleted":
+                    _json_response(self, 400, {"error": "Secondary customer is deleted"})
+                    return
+                merged = merge_customers(tenant_id, primary, secondary)
+                print(f"Merged customer id={secondary_id} into id={primary_id}")
+                _json_response(self, 200, {"ok": True, "customer": merged})
+            except Exception as exc:
+                print(f"Merge failed primary={primary_id} secondary={secondary_id}: {exc}")
+                _json_response(self, 500, {"error": f"Merge failed: {exc}"})
+            return
+
+        # POST /api/feedback
+        if path == "/api/feedback":
+            category = (body.get("category") or "").strip()
+            message = (body.get("message") or "").strip()
+            if not category:
+                _json_response(self, 400, {"error": "category required"})
+                return
+            try:
+                row = create_feedback(tenant_id, category, message)
+                print(f"Feedback submitted tenant={tenant_id} category={category}")
+                _json_response(self, 201, {"ok": True, "feedback": row})
+            except Exception as exc:
+                print(f"Feedback submit failed: {exc}")
+                _json_response(self, 500, {"error": f"Failed: {exc}"})
             return
 
         if path.startswith("/api/leads/") and path.endswith("/events"):

@@ -76,10 +76,10 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
-<body class="bg-surface text-on-surface min-h-screen">
+<body class="bg-surface text-on-surface min-h-screen auth-mode">
 
 <!-- Login overlay -->
-<div id="login-overlay" class="fixed inset-0 z-50 flex items-center justify-center bg-background">
+<div id="login-overlay" class="fixed inset-0 z-[300] flex items-center justify-center bg-background">
   <div class="w-full max-w-sm p-8 rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-lg">
     <h1 class="text-2xl font-headline font-bold text-on-surface mb-1">ATTRA</h1>
 
@@ -238,11 +238,11 @@
 </aside>
 
 <!-- Main Content -->
-<section id="main-content" class="flex-1 md:ml-64 p-6 md:p-12 pb-28 md:pb-12 w-full">
+<section id="main-content" class="flex-1 md:ml-64 p-4 md:p-8 xl:p-12 pb-24 md:pb-20 xl:pb-12 w-full">
 
 <!-- PAGE: Home -->
 <div id="page-home" class="page active">
-<header class="mb-12">
+<header class="mb-6 xl:mb-10">
 <div class="flex items-center gap-2 mb-2">
 <span class="text-secondary font-label text-[10px] uppercase tracking-[0.3em] block">Overview</span>
 <div class="h-px flex-1 bg-outline-variant/30"></div>
@@ -250,13 +250,13 @@
 <h1 class="serif-display text-5xl md:text-7xl font-bold tracking-tight text-on-surface leading-tight min-h-[1.2em]">
 <span id="home-greeting"></span><span class="typewriter-cursor"></span>
 </h1>
-<p id="home-subtitle" class="text-secondary mt-6 max-w-2xl text-lg leading-relaxed font-light" style="opacity:0; transition: opacity 0.6s ease;">
+<p id="home-subtitle" class="text-secondary mt-3 xl:mt-5 max-w-2xl text-lg leading-relaxed font-light" style="opacity:0; transition: opacity 0.6s ease;">
 Here's your situation at a glance.
 </p>
 </header>
 
 <!-- Stats row -->
-<div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-12">
+<div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6 xl:mb-10">
 <div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
 <p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-1">Total Clients</p>
 <p id="stat-home-total" class="serif-display text-4xl font-bold text-on-surface">—</p>
@@ -272,10 +272,10 @@ Here's your situation at a glance.
 </div>
 
 <!-- Main grid -->
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 xl:gap-10">
 
 <!-- Left: Priorities + Activity -->
-<div class="lg:col-span-8 space-y-10">
+<div class="lg:col-span-8 space-y-6 xl:space-y-10">
 
 <!-- Today's Priorities -->
 <div>
@@ -319,17 +319,17 @@ Here's your situation at a glance.
 
 <!-- PAGE: Magic Inbox -->
 <div id="page-inbox" class="page">
-<header class="mb-12">
+<header class="mb-6 xl:mb-10">
 <div class="flex items-center gap-2 mb-2">
 <span class="text-secondary font-label text-[10px] uppercase tracking-[0.3em] block">Curation Queue</span>
 <div class="h-px flex-1 bg-outline-variant/30"></div>
 </div>
 <h1 class="serif-display text-5xl md:text-7xl font-bold tracking-tight text-on-surface leading-tight">Magic Inbox</h1>
-<p class="text-secondary mt-6 max-w-2xl text-lg leading-relaxed font-light">
+<p class="text-secondary mt-3 xl:mt-5 max-w-2xl text-lg leading-relaxed font-light">
                 Your concierge has drafted follow-up messages based on recent client interactions. Please review and approve the suggested communications.
             </p>
 </header>
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 xl:gap-10">
 <div class="lg:col-span-8 space-y-8">
 <div class="flex items-center justify-between mb-4">
 <h3 class="serif-display text-2xl italic font-medium">Pending Approvals</h3>
@@ -343,15 +343,15 @@ Here's your situation at a glance.
 
 <!-- PAGE: Dashboard -->
 <div id="page-dashboard" class="page">
-<header class="mb-12">
+<header class="mb-6 xl:mb-10">
 <div class="flex items-center gap-2 mb-2">
 <span class="text-secondary font-label text-[10px] uppercase tracking-[0.3em] block">Client Management</span>
 <div class="h-px flex-1 bg-outline-variant/30"></div>
 </div>
 <h1 class="serif-display text-5xl md:text-7xl font-bold tracking-tight text-on-surface leading-tight">Dashboard</h1>
-<p class="text-secondary mt-6 max-w-2xl text-lg leading-relaxed font-light">Your complete client overview. Manage contacts, track profiles, and stay on top of next actions.</p>
+<p class="text-secondary mt-3 xl:mt-5 max-w-2xl text-lg leading-relaxed font-light">Your complete client overview. Manage contacts, track profiles, and stay on top of next actions.</p>
 </header>
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 xl:mb-8">
 <div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm">
 <p class="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary mb-1">Total Clients</p>
 <p id="stat-dash-total" class="serif-display text-4xl font-bold text-on-surface">—</p>
@@ -401,10 +401,10 @@ Here's your situation at a glance.
 
 <!-- PAGE: Clients -->
 <div id="page-clients" class="page">
-<header class="mb-12">
+<header class="mb-6 xl:mb-10">
 <div class="flex items-center gap-2 mb-2"><span class="text-secondary font-label text-[10px] uppercase tracking-[0.3em] block">Relationship Management</span><div class="h-px flex-1 bg-outline-variant/30"></div></div>
 <h1 class="serif-display text-5xl md:text-7xl font-bold tracking-tight text-on-surface leading-tight">Clients</h1>
-<p class="text-secondary mt-6 max-w-2xl text-lg leading-relaxed font-light">Full client profiles with service history, invoices, and interaction summaries.</p>
+<p class="text-secondary mt-3 xl:mt-5 max-w-2xl text-lg leading-relaxed font-light">Full client profiles with service history, invoices, and interaction summaries.</p>
 </header>
 <div class="flex items-center gap-3 mb-4">
 <div class="relative flex-1">
@@ -435,7 +435,7 @@ Here's your situation at a glance.
 
 <!-- PAGE: Settings -->
 <div id="page-settings" class="page">
-<header class="mb-12">
+<header class="mb-6 xl:mb-10">
 <div class="flex items-center gap-2 mb-2">
 <span class="text-secondary font-label text-[10px] uppercase tracking-[0.3em] block">Preferences</span>
 <div class="h-px flex-1 bg-outline-variant/30"></div>
@@ -755,7 +755,7 @@ Here's your situation at a glance.
 <button onclick="showPage('page-settings')" data-mobile-page="page-settings" class="mobile-nav-btn flex flex-col items-center justify-center px-3 py-2 rounded-2xl transition-all duration-150 text-[#495e8a]"><span class="material-symbols-outlined text-xl">settings</span><span class="font-sans text-[10px] font-bold tracking-tighter">Settings</span></button>
 </nav>
 <!-- MODAL: Deal Detail -->
-<div id="deal-modal" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+<div id="deal-modal" class="fixed inset-0 z-[80] hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
   <div class="absolute inset-0 bg-on-surface/40 backdrop-blur-sm" onclick="closeDealModal()"></div>
   <div class="relative bg-surface w-full max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl border border-outline-variant/10 flex flex-col max-h-[95dvh] sm:max-h-[90vh]">
     <div class="flex items-center justify-between px-5 py-4 sm:px-8 sm:py-6 border-b border-outline-variant/10">
@@ -813,7 +813,7 @@ Here's your situation at a glance.
 </div>
 
 <!-- MODAL: Client Detail -->
-<div id="client-modal" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+<div id="client-modal" class="fixed inset-0 z-[80] hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
   <div class="absolute inset-0 bg-on-surface/40 backdrop-blur-sm" onclick="closeClientModal()"></div>
   <div class="relative bg-surface w-full max-w-4xl rounded-t-3xl sm:rounded-3xl shadow-2xl border border-outline-variant/10 flex flex-col max-h-[95dvh] sm:max-h-[90vh]">
     <div class="flex items-center justify-between px-5 py-4 sm:px-8 sm:py-6 border-b border-outline-variant/10">
@@ -821,6 +821,7 @@ Here's your situation at a glance.
       <div class="flex items-center gap-2">
         <button id="client-modal-pin-btn" onclick="toggleModalPin()" class="hidden w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface-container-high transition-all text-secondary" title="Pin client"><span class="material-symbols-outlined text-xl">push_pin</span></button>
         <button id="client-modal-refresh-btn" onclick="refreshClient()" class="hidden w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface-container-high transition-all text-secondary" title="Refresh AI summary"><span class="material-symbols-outlined text-xl">sync</span></button>
+        <button id="client-modal-merge-btn" onclick="openMergePicker()" class="hidden w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface-container-high transition-all text-secondary" title="Merge with another contact"><span class="material-symbols-outlined text-xl">merge</span></button>
         <button id="client-modal-delete-btn" onclick="deleteClient()" class="hidden w-9 h-9 flex items-center justify-center rounded-xl hover:bg-error/10 transition-all text-secondary hover:text-error" title="Delete contact"><span class="material-symbols-outlined text-xl">delete</span></button>
         <button onclick="closeClientModal()" class="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-surface-container-high transition-all text-secondary"><span class="material-symbols-outlined text-xl">close</span></button>
       </div>
@@ -957,14 +958,78 @@ Here's your situation at a glance.
   </div>
 </div>
 
+<!-- MODAL: Merge picker -->
+<div id="merge-picker-modal" class="fixed inset-0 z-[85] hidden flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-on-surface/50 backdrop-blur-sm" onclick="closeMergePicker()"></div>
+  <div class="relative bg-surface w-full max-w-md rounded-2xl shadow-2xl border border-outline-variant/10 p-6 flex flex-col gap-4">
+    <button onclick="closeMergePicker()" class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-container-high transition-all"><span class="material-symbols-outlined text-base">close</span></button>
+    <h3 class="text-lg font-bold text-on-surface">Merge Contact</h3>
+    <p class="text-sm text-secondary">Search for the contact to merge into <strong id="merge-picker-primary-name"></strong>. The selected contact will be deleted after merging.</p>
+    <input id="merge-picker-search" type="text" placeholder="Search by name, phone, email…" oninput="onMergePickerSearch(this.value)" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
+    <div id="merge-picker-results" class="max-h-60 overflow-y-auto rounded-xl border border-outline-variant/20 bg-surface-container-lowest divide-y divide-outline-variant/10 empty:hidden"></div>
+    <div id="merge-picker-confirm" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col gap-3">
+      <p class="text-sm text-amber-900">Merge <strong id="merge-confirm-secondary-name"></strong> into <strong id="merge-confirm-primary-name"></strong>?<br/><span class="font-normal">Network IDs, notes, tags and events will be combined. The secondary contact will be deleted.</span></p>
+      <div class="flex gap-3 justify-end">
+        <button type="button" onclick="cancelMergeConfirm()" class="px-4 py-2 rounded-xl border border-outline-variant text-sm font-bold text-secondary hover:bg-surface-container transition-all">Back</button>
+        <button type="button" id="merge-confirm-btn" onclick="executeMerge()" class="px-4 py-2 rounded-xl bg-error text-white text-sm font-bold hover:opacity-90 transition-all">Merge &amp; Delete Secondary</button>
+      </div>
+    </div>
+    <p id="merge-picker-msg" class="text-xs text-error hidden"></p>
+  </div>
+</div>
+
+<!-- Tooltip -->
+<div id="tooltip" style="position:fixed;z-index:9999;pointer-events:none;opacity:0;transition:opacity 0.15s ease;background:rgba(30,30,30,0.92);color:#fff;font-size:12px;line-height:1.4;padding:5px 10px;border-radius:8px;max-width:220px;white-space:normal;box-shadow:0 2px 8px rgba(0,0,0,0.25);"></div>
+
+<!-- Floating feedback button -->
+<button onclick="openFeedbackModal()" id="feedback-fab" class="fixed bottom-6 right-6 z-[90] flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-2xl shadow-lg hover:opacity-90 active:scale-95 transition-all text-sm font-bold" title="Send feedback">
+  <span class="material-symbols-outlined text-base">feedback</span>
+  <span class="hidden sm:inline">Feedback</span>
+</button>
+
+<!-- MODAL: Feedback -->
+<div id="feedback-modal" class="fixed inset-0 z-[95] hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+  <div class="absolute inset-0 bg-on-surface/50 backdrop-blur-sm" onclick="closeFeedbackModal()"></div>
+  <div class="relative bg-surface w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-outline-variant/10 flex flex-col">
+    <div class="flex items-center justify-between px-5 py-4 sm:px-6 sm:py-5 border-b border-outline-variant/10">
+      <h3 class="text-lg font-bold text-on-surface">Send Feedback</h3>
+      <button onclick="closeFeedbackModal()" class="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-container-high transition-all"><span class="material-symbols-outlined text-base">close</span></button>
+    </div>
+    <div class="p-5 sm:p-6 flex flex-col gap-4">
+      <div>
+        <label class="block text-xs font-bold text-secondary uppercase tracking-wide mb-1.5">Category</label>
+        <select id="feedback-category" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+          <option value="">Select a category…</option>
+          <option value="bug">Bug / Something broke</option>
+          <option value="feature_request">Feature request</option>
+          <option value="usability">Confusing UI / Usability</option>
+          <option value="performance">Performance / Too slow</option>
+          <option value="missing_integration">Missing integration</option>
+          <option value="praise">Works great / Praise</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-secondary uppercase tracking-wide mb-1.5">Message <span class="font-normal normal-case">(optional)</span></label>
+        <textarea id="feedback-message" rows="8" placeholder="Describe what happened or what you'd like to see…" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-y min-h-[8rem]"></textarea>
+      </div>
+      <p id="feedback-msg" class="text-xs text-error hidden"></p>
+    </div>
+    <div class="px-5 py-4 sm:px-6 sm:py-5 border-t border-outline-variant/10 flex justify-end gap-3">
+      <button onclick="closeFeedbackModal()" class="px-4 py-2 rounded-xl border border-outline-variant text-sm font-bold text-secondary hover:bg-surface-container transition-all">Cancel</button>
+      <button id="feedback-submit-btn" onclick="submitFeedback()" class="px-4 py-2 rounded-xl bg-primary text-on-primary text-sm font-bold hover:opacity-90 transition-all">Send Feedback</button>
+    </div>
+  </div>
+</div>
+
 <!-- Shared lead filter dropdown -->
 <div id="lead-filter-dropdown" class="hidden fixed z-[200] w-72 bg-surface-container-lowest border border-outline-variant/20 rounded-2xl shadow-2xl overflow-hidden" style="top:0;right:0">
 <div id="lead-filter-dropdown-inner" class="p-4 max-h-[70vh] overflow-y-auto">
 </div>
 </div>
 
-<script src="app.js?v=7" defer></script>
-<script src="app-rendering.js?v=6" defer></script>
-<script src="app-modals.js?v=5" defer></script>
+<script src="app.js?v=11" defer></script>
+<script src="app-rendering.js?v=8" defer></script>
+<script src="app-modals.js?v=8" defer></script>
 </body>
 </html>

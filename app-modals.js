@@ -84,11 +84,7 @@ async function saveDeal() {
   }
   msg.textContent = 'Saving\u2026';
   try {
-    var res = await fetch(isNew ? '/api/deals' : '/api/deals/' + id, {
-      method: isNew ? 'POST' : 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
-      body: JSON.stringify(payload),
-    });
+    var res = await _apiFetch(isNew ? 'POST' : 'PATCH', isNew ? '/api/deals' : '/api/deals/' + id, payload);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     msg.textContent = isNew ? 'Created.' : 'Saved.';
     setTimeout(closeDealModal, 600);
@@ -118,6 +114,8 @@ function openNewClientModal() {
   if (pinBtn) pinBtn.classList.add('hidden');
   var refreshBtn = document.getElementById('client-modal-refresh-btn');
   if (refreshBtn) refreshBtn.classList.add('hidden');
+  var mergeBtn = document.getElementById('client-modal-merge-btn');
+  if (mergeBtn) mergeBtn.classList.add('hidden');
   var delBtn = document.getElementById('client-modal-delete-btn');
   if (delBtn) delBtn.classList.add('hidden');
   _clientModalTagIds = [];
@@ -150,11 +148,7 @@ async function toggleModalPin() {
   if (!id) return;
   var newPinned = !_clientModalPinned;
   try {
-    var res = await fetch('/api/leads/' + id, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
-      body: JSON.stringify({ pinned: newPinned }),
-    });
+    var res = await _apiFetch('PATCH', '/api/leads/' + id, { pinned: newPinned });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     _clientModalPinned = newPinned;
     if (_leadsById[id]) _leadsById[id].pinned = newPinned;
@@ -184,6 +178,8 @@ async function openClientModal(lead) {
   _updatePinBtn(_clientModalPinned);
   var refreshBtn = document.getElementById('client-modal-refresh-btn');
   if (refreshBtn) refreshBtn.classList.remove('hidden');
+  var mergeBtn = document.getElementById('client-modal-merge-btn');
+  if (mergeBtn) mergeBtn.classList.remove('hidden');
   var delBtn = document.getElementById('client-modal-delete-btn');
   if (delBtn) delBtn.classList.remove('hidden');
   _clientModalTagIds = [];
@@ -194,7 +190,7 @@ async function openClientModal(lead) {
   document.getElementById('client-modal-events-section').classList.remove('hidden');
   document.getElementById('client-modal').classList.remove('hidden');
   try {
-    var res = await fetch('/api/leads/' + lead.id + '/tags', { headers: { 'Authorization': 'Bearer ' + _authToken } });
+    var res = await _apiFetch('GET', '/api/leads/' + lead.id + '/tags');
     if (res.ok) {
       var data = await res.json();
       _clientModalTagIds = (data.tags || []).map(function(t) { return t.id; });
@@ -202,7 +198,7 @@ async function openClientModal(lead) {
     }
   } catch (e) {}
   try {
-    var evRes = await fetch('/api/leads/' + lead.id + '/events', { headers: { 'Authorization': 'Bearer ' + _authToken } });
+    var evRes = await _apiFetch('GET', '/api/leads/' + lead.id + '/events');
     if (evRes.ok) {
       var evData = await evRes.json();
       _clientModalEvents = evData.events || [];
@@ -275,11 +271,7 @@ async function saveEventForm() {
   if (dur) payload.duration_minutes = parseInt(dur, 10);
   if (notes) payload.notes = notes;
   try {
-    var res = await fetch('/api/leads/' + customerId + '/events', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
-      body: JSON.stringify(payload),
-    });
+    var res = await _apiFetch('POST', '/api/leads/' + customerId + '/events', payload);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
     _clientModalEvents.push(data.event);
@@ -292,10 +284,7 @@ async function saveEventForm() {
 
 async function deleteClientEvent(eventId) {
   try {
-    var res = await fetch('/api/events/' + eventId, {
-      method: 'DELETE',
-      headers: { 'Authorization': 'Bearer ' + _authToken },
-    });
+    var res = await _apiFetch('DELETE', '/api/events/' + eventId);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     _clientModalEvents = _clientModalEvents.filter(function(e) { return e.id !== eventId; });
     _renderClientEvents();
@@ -312,10 +301,7 @@ async function refreshClient() {
   msg.textContent = 'Queuing refresh\u2026';
   if (btn) btn.disabled = true;
   try {
-    var res = await fetch('/api/leads/' + id + '/refresh', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + _authToken },
-    });
+    var res = await _apiFetch('POST', '/api/leads/' + id + '/refresh');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     msg.textContent = 'Queued \u2014 summary will update after next ingest cycle.';
   } catch (e) {
@@ -349,19 +335,11 @@ async function saveClient() {
   if (isNew) payload.name = document.getElementById('client-modal-name').value;
   msg.textContent = 'Saving\u2026';
   try {
-    var res = await fetch(isNew ? '/api/leads' : '/api/leads/' + id, {
-      method: isNew ? 'POST' : 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
-      body: JSON.stringify(payload),
-    });
+    var res = await _apiFetch(isNew ? 'POST' : 'PATCH', isNew ? '/api/leads' : '/api/leads/' + id, payload);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var saved = await res.json();
     var customerId = isNew ? saved.customer.id : id;
-    await fetch('/api/leads/' + customerId + '/tags', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
-      body: JSON.stringify({ tag_ids: _clientModalTagIds }),
-    });
+    await _apiFetch('PUT', '/api/leads/' + customerId + '/tags', { tag_ids: _clientModalTagIds });
     var tagNames = _clientModalTagIds.map(function(tid) {
       var t = _tenantTags.find(function(x) { return x.id === tid; });
       return t ? t.name : null;
@@ -375,11 +353,7 @@ async function saveClient() {
         var bytes = new Uint8Array(buf);
         var binary = '';
         bytes.forEach(function(b) { binary += String.fromCharCode(b); });
-        fetch('/api/leads/' + customerId + '/voice-note', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + _authToken, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ audio_b64: btoa(binary) })
-        });
+        _apiFetch('POST', '/api/leads/' + customerId + '/voice-note', { audio_b64: btoa(binary) });
       });
     }
     setTimeout(closeClientModal, 600);
@@ -395,10 +369,7 @@ async function deleteClient() {
   if (!confirm('Delete this contact?')) return;
   var msg = document.getElementById('client-modal-status-msg');
   try {
-    var res = await fetch('/api/leads/' + id, {
-      method: 'DELETE',
-      headers: { 'Authorization': 'Bearer ' + _authToken },
-    });
+    var res = await _apiFetch('DELETE', '/api/leads/' + id);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     closeClientModal();
     loadAllLeadData();
@@ -478,4 +449,156 @@ function _voiceStopCleanup() {
   if (icon) icon.textContent = 'fiber_manual_record';
   if (label) label.textContent = 'Record';
   if (btn) btn.classList.replace('bg-secondary', 'bg-error');
+}
+
+// ── Merge customer ──────────────────────────────────────────────────────────
+
+var _mergeSecondaryId = null;
+
+function openMergePicker() {
+  var primaryId = document.getElementById('client-modal-id').value;
+  if (!primaryId) return;
+  var primary = _leadsById[parseInt(primaryId, 10)];
+  document.getElementById('merge-picker-primary-name').textContent =
+    primary ? (primary.display_name || primary.name || 'this contact') : 'this contact';
+  document.getElementById('merge-picker-search').value = '';
+  document.getElementById('merge-picker-results').innerHTML = '';
+  document.getElementById('merge-picker-confirm').classList.add('hidden');
+  document.getElementById('merge-picker-msg').classList.add('hidden');
+  _mergeSecondaryId = null;
+  document.getElementById('merge-picker-modal').classList.remove('hidden');
+  setTimeout(function() { document.getElementById('merge-picker-search').focus(); }, 50);
+}
+
+function closeMergePicker() {
+  document.getElementById('merge-picker-modal').classList.add('hidden');
+  _mergeSecondaryId = null;
+}
+
+function onMergePickerSearch(query) {
+  var primaryId = parseInt(document.getElementById('client-modal-id').value, 10);
+  var resultsEl = document.getElementById('merge-picker-results');
+  var q = (query || '').trim().toLowerCase();
+  if (!q) { resultsEl.innerHTML = ''; return; }
+  var matches = Object.values(_leadsById).filter(function(l) {
+    if (_isDeleted(l)) return false;
+    if (l.id === primaryId) return false;
+    return (l.display_name || l.name || '').toLowerCase().includes(q) ||
+           (l.phone || '').toLowerCase().includes(q) ||
+           (l.email || '').toLowerCase().includes(q) ||
+           (l.whatsapp_id || '').toLowerCase().includes(q) ||
+           (l.telegram_id || '').toLowerCase().includes(q);
+  }).slice(0, 8);
+  if (!matches.length) {
+    resultsEl.innerHTML = '<div class="px-4 py-3 text-sm text-secondary">No results.</div>';
+    return;
+  }
+  resultsEl.innerHTML = matches.map(function(l) {
+    var name = escapeHtml(l.display_name || l.name || 'Unknown');
+    var sub = escapeHtml(l.phone || l.email || l.whatsapp_id || '');
+    var badge = statusBadgeClasses(l.status);
+    return '<div onclick="selectMergeSecondary(' + l.id + ')" class="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-surface-container-low transition-colors">' +
+      '<div class="flex-1 min-w-0"><p class="text-sm font-bold text-on-surface truncate">' + name + '</p>' +
+      (sub ? '<p class="text-xs text-secondary truncate">' + sub + '</p>' : '') + '</div>' +
+      '<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md flex-shrink-0 ' + badge + '">' + escapeHtml(l.status || '') + '</span></div>';
+  }).join('');
+}
+
+function selectMergeSecondary(secondaryId) {
+  var primaryId = parseInt(document.getElementById('client-modal-id').value, 10);
+  var primary = _leadsById[primaryId];
+  var secondary = _leadsById[secondaryId];
+  if (!secondary) return;
+  _mergeSecondaryId = secondaryId;
+  document.getElementById('merge-confirm-primary-name').textContent =
+    primary ? (primary.display_name || primary.name || 'Primary') : 'Primary';
+  document.getElementById('merge-confirm-secondary-name').textContent =
+    secondary.display_name || secondary.name || 'Unknown';
+  document.getElementById('merge-picker-results').innerHTML = '';
+  document.getElementById('merge-picker-search').value = '';
+  document.getElementById('merge-picker-confirm').classList.remove('hidden');
+}
+
+function cancelMergeConfirm() {
+  _mergeSecondaryId = null;
+  document.getElementById('merge-picker-confirm').classList.add('hidden');
+  document.getElementById('merge-picker-search').value = '';
+  document.getElementById('merge-picker-results').innerHTML = '';
+}
+
+async function executeMerge() {
+  var primaryId = document.getElementById('client-modal-id').value;
+  if (!primaryId || !_mergeSecondaryId) return;
+  var btn = document.getElementById('merge-confirm-btn');
+  var msgEl = document.getElementById('merge-picker-msg');
+  btn.disabled = true;
+  btn.textContent = 'Merging\u2026';
+  msgEl.classList.add('hidden');
+  try {
+    var res = await _apiFetch('POST', '/api/leads/' + primaryId + '/merge', { secondary_id: _mergeSecondaryId });
+    if (!res.ok) {
+      var errData = await res.json().catch(function() { return {}; });
+      throw new Error(errData.error || 'HTTP ' + res.status);
+    }
+    var data = await res.json();
+    if (data.customer) _leadsById[data.customer.id] = data.customer;
+    delete _leadsById[_mergeSecondaryId];
+    closeMergePicker();
+    closeClientModal();
+    await loadAllLeadData();
+    if (data.customer) {
+      var updated = _leadsById[data.customer.id];
+      if (updated) openClientModal(updated);
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Merge & Delete Secondary';
+    msgEl.textContent = 'Error: ' + e.message;
+    msgEl.classList.remove('hidden');
+  }
+}
+
+// ── Feedback ─────────────────────────────────────────────────────────────────
+
+function openFeedbackModal() {
+  document.getElementById('feedback-category').value = '';
+  document.getElementById('feedback-message').value = '';
+  document.getElementById('feedback-msg').classList.add('hidden');
+  var btn = document.getElementById('feedback-submit-btn');
+  btn.disabled = false;
+  btn.textContent = 'Send Feedback';
+  document.getElementById('feedback-modal').classList.remove('hidden');
+  setTimeout(function() { document.getElementById('feedback-category').focus(); }, 50);
+}
+
+function closeFeedbackModal() {
+  document.getElementById('feedback-modal').classList.add('hidden');
+}
+
+async function submitFeedback() {
+  var category = document.getElementById('feedback-category').value;
+  var message = document.getElementById('feedback-message').value.trim();
+  var msgEl = document.getElementById('feedback-msg');
+  var btn = document.getElementById('feedback-submit-btn');
+  if (!category) {
+    msgEl.textContent = 'Please select a category.';
+    msgEl.classList.remove('hidden');
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Sending\u2026';
+  msgEl.classList.add('hidden');
+  try {
+    var res = await _apiFetch('POST', '/api/feedback', { category: category, message: message });
+    if (!res.ok) {
+      var errData = await res.json().catch(function() { return {}; });
+      throw new Error(errData.error || 'HTTP ' + res.status);
+    }
+    closeFeedbackModal();
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Send Feedback';
+    msgEl.textContent = 'Error: ' + e.message;
+    msgEl.classList.remove('hidden');
+  }
 }

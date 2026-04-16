@@ -148,6 +148,14 @@ def resolve_tenant_id_by_api_key(api_key: str) -> str | None:
     return result.data[0]["id"] if result.data else None
 
 
+def resolve_tenant_id_from_env() -> str:
+    """Resolve tenant ID from CRM_TENANT_ID or CRM_TENANT_API_KEY env vars."""
+    api_key = os.getenv("CRM_TENANT_API_KEY")
+    return os.getenv("CRM_TENANT_ID") or (
+        resolve_tenant_id_by_api_key(api_key) if api_key else DEFAULT_TENANT_ID
+    )
+
+
 def resolve_tenant_id_by_supabase_user_id(supabase_user_id: str) -> str | None:
     result = (
         supabase.table("tenants")
@@ -611,6 +619,78 @@ def soft_delete_customer(tenant_id: str, customer_id: int) -> None:
     }).eq("tenant_id", tenant_id).eq("id", customer_id).execute()
 
 
+NETWORK_ID_COLUMNS = [
+    "whatsapp_id", "instagram_id", "messenger_id", "telegram_id", "signal_id",
+    "twitter_id", "linkedin_id", "slack_id", "discord_id",
+    "google_messages_id", "google_chat_id", "google_voice_id",
+]
+
+
+def transfer_events_to_customer(
+    tenant_id: str, from_customer_id: int, to_customer_id: int
+) -> None:
+    """Bulk-reassign all events from one customer to another."""
+    supabase.table("customer_events") \
+        .update({"customer_id": to_customer_id}) \
+        .eq("tenant_id", tenant_id) \
+        .eq("customer_id", from_customer_id) \
+        .execute()
+
+
+def merge_customers(tenant_id: str, primary: dict, secondary: dict) -> dict:
+    """Merge secondary into primary. Returns updated primary row.
+
+    Operation order (safe for non-atomic Supabase):
+      1. Build update dict in Python (no DB writes yet)
+      2. UPDATE primary fields
+      3. Bulk-reassign events to primary
+      4. Union tags onto primary
+      5. Soft-delete secondary
+      6. Set needs_refresh=True on primary (LLM will clean up combined profile_notes)
+    """
+    primary_id = int(primary["id"])
+    secondary_id = int(secondary["id"])
+
+    update: dict[str, Any] = {}
+
+    # Network IDs: fill primary gaps from secondary
+    for col in NETWORK_ID_COLUMNS:
+        if not (primary.get(col) or "").strip() and (secondary.get(col) or "").strip():
+            update[col] = secondary[col]
+
+    # Phone / email: fill primary gaps
+    for col in ("phone", "email"):
+        if not (primary.get(col) or "").strip() and (secondary.get(col) or "").strip():
+            update[col] = secondary[col]
+
+    # notes and profile_notes: concatenate
+    for col in ("notes", "profile_notes"):
+        pval = (primary.get(col) or "").rstrip()
+        sval = (secondary.get(col) or "").strip()
+        if sval:
+            update[col] = (pval + "\n\n---\n\n" + sval) if pval else sval
+
+    if update:
+        update_customer(tenant_id, primary_id, update)
+
+    transfer_events_to_customer(tenant_id, secondary_id, primary_id)
+
+    primary_tag_ids = {t["id"] for t in get_customer_tags(primary_id)}
+    secondary_tag_ids = {t["id"] for t in get_customer_tags(secondary_id)}
+    set_customer_tags(primary_id, list(primary_tag_ids | secondary_tag_ids))
+
+    soft_delete_customer(tenant_id, secondary_id)
+
+    # Set needs_refresh directly — do NOT use queue_customer_refresh() which would
+    # clear the just-concatenated profile_notes
+    supabase.table("customers").update({
+        "needs_refresh": True,
+        "last_updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("tenant_id", tenant_id).eq("id", primary_id).execute()
+
+    return get_customer(tenant_id, primary_id)
+
+
 def get_recent_messages_for_customer(
     tenant_id: str, customer_id: int, limit: int = 50
 ) -> list[dict]:
@@ -656,3 +736,14 @@ def queue_customer_refresh(tenant_id: str, customer_id: int) -> dict | None:
 def clear_customer_needs_refresh(tenant_id: str, customer_id: int) -> None:
     """Clear the needs_refresh flag after the ingest script has queued the batch."""
     supabase.table("customers").update({"needs_refresh": False}).eq("tenant_id", tenant_id).eq("id", customer_id).execute()
+
+
+def create_feedback(tenant_id: str, category: str, message: str) -> dict:
+    row = {
+        "tenant_id": tenant_id,
+        "category": category,
+        "message": message,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    result = supabase.table("feedback").insert(row).execute()
+    return result.data[0]

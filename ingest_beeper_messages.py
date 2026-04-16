@@ -47,9 +47,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
-from config import USER_NAME  # noqa: F401 — kept for symmetry with other scripts
 from database import (
-    DEFAULT_TENANT_ID,
     append_messages_to_batch,
     clear_customer_needs_refresh,
     find_customer,
@@ -59,7 +57,7 @@ from database import (
     initialize_database,
     insert_raw_message_batch,
     is_customer_deleted,
-    resolve_tenant_id_by_api_key,
+    resolve_tenant_id_from_env,
     update_customer,
     upsert_customer_payload,
 )
@@ -69,15 +67,12 @@ from beeper_client import (
     _fetch_last_messages,
     _is_private_chat,
     _items,
+    _message_sort_key,
     client,
 )
 
-
-TENANT_API_KEY = os.getenv("CRM_TENANT_API_KEY")
 initialize_database()
-TENANT_ID = os.getenv("CRM_TENANT_ID") or (
-    resolve_tenant_id_by_api_key(TENANT_API_KEY) if TENANT_API_KEY else DEFAULT_TENANT_ID
-)
+TENANT_ID = resolve_tenant_id_from_env()
 
 POLL_INTERVAL_SECONDS = int(os.getenv("INBOX_POLL_INTERVAL_SECONDS", "20"))
 NEW_CUSTOMER_MESSAGE_LIMIT = int(os.getenv("INBOX_NEW_CUSTOMER_MESSAGE_LIMIT", "50"))
@@ -92,14 +87,6 @@ def _safe_get(obj: Any, attr: str, default: Any = None) -> Any:
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-def _message_sort_key(message: Any) -> Any:
-    for attr in ("sort_key", "timestamp", "created_at", "sent_at", "date", "id"):
-        value = _safe_get(message, attr)
-        if value is not None:
-            return value
-    return 0
 
 
 def _message_id(message: Any) -> str:
@@ -349,7 +336,6 @@ def _ingest_chat(chat: Any, hide_personal_contacts: bool = False) -> None:
     pending = find_pending_batch_for_customer(TENANT_ID, customer_id)
     if pending:
         if not is_refresh and pending["latest_message_id"] == latest_msg_id:
-            print(f"No new messages for '{contact['name']}'; pending batch up to date")
             return
         append_messages_to_batch(pending["id"], serialized, latest_msg_id)
         print(f"Appended to pending batch for '{contact['name']}' (batch_id={pending['id']})")
@@ -361,17 +347,13 @@ def _ingest_chat(chat: Any, hide_personal_contacts: bool = False) -> None:
     # No pending batch — skip if customer is already fully up to date (unless refresh forced)
     if not is_new and not is_refresh:
         if existing and existing.get("last_processed_message_id") == latest_msg_id:
-            print(f"No new messages for '{contact['name']}'; already up to date")
             return
 
     batch_id = insert_raw_message_batch(TENANT_ID, customer_id, serialized, latest_msg_id)
     if is_refresh:
         clear_customer_needs_refresh(TENANT_ID, customer_id)
         print(f"Refresh queued for '{contact['name']}'")
-    print(
-        f"Ingested {len(serialized)} messages for '{contact['name']}' "
-        f"(customer_id={customer_id}, batch_id={batch_id}, {'new' if is_new else 'existing'})"
-    )
+    print(f"Ingested {len(serialized)} messages for '{contact['name']}' (customer_id={customer_id}, batch_id={batch_id}, {'new' if is_new else 'existing'})")
 
 
 def poll_once() -> None:
@@ -385,10 +367,7 @@ def poll_once() -> None:
 
 
 def main() -> None:
-    print(
-        f"Ingesting Beeper messages every {POLL_INTERVAL_SECONDS}s | "
-        f"tenant={TENANT_ID} | monitoring {MONITORED_CONVERSATIONS} chats"
-    )
+    print(f"Ingesting Beeper messages every {POLL_INTERVAL_SECONDS}s | tenant={TENANT_ID} | monitoring {MONITORED_CONVERSATIONS} chats")
     while True:
         try:
             poll_once()

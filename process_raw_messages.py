@@ -40,27 +40,12 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from env_loader import _load_env_file
 
 # Load .env before anything that reads os.environ
-def _load_env_file(path: str = ".env") -> None:
-    if not os.path.exists(path):
-        return
-    with open(path, "r", encoding="utf-8") as fh:
-        for raw_line in fh:
-            line = raw_line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-            if key and key not in os.environ:
-                os.environ[key] = value
-
-
 _load_env_file()
 
 from database import (  # noqa: E402 — must come after env load
-    DEFAULT_TENANT_ID,
     fetch_oldest_unprocessed_batch,
     get_customer,
     get_tenant,
@@ -68,16 +53,12 @@ from database import (  # noqa: E402 — must come after env load
     is_customer_deleted,
     mark_batch_processed,
     mark_batch_processing,
-    resolve_tenant_id_by_api_key,
+    resolve_tenant_id_from_env,
     upsert_customer_payload,
 )
 
-
-TENANT_API_KEY = os.getenv("CRM_TENANT_API_KEY")
 initialize_database()
-TENANT_ID = os.getenv("CRM_TENANT_ID") or (
-    resolve_tenant_id_by_api_key(TENANT_API_KEY) if TENANT_API_KEY else DEFAULT_TENANT_ID
-)
+TENANT_ID = resolve_tenant_id_from_env()
 
 POLL_INTERVAL_SECONDS = int(os.getenv("PROCESS_POLL_INTERVAL_SECONDS", "5"))
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
@@ -265,7 +246,7 @@ def _process_batch(row: dict) -> None:
         return
 
     start = datetime.now(timezone.utc)
-    print(f"[{start.strftime('%Y-%m-%d %H:%M:%S')}] Processing batch_id={batch_id} for customer '{name}' (id={customer_id}) …")
+    print(f"Processing batch_id={batch_id} for customer '{name}' (id={customer_id}) …")
 
     existing_summary = str(existing.get("summary") or "")
     existing_profile_notes = str(existing.get("profile_notes") or "")
@@ -307,10 +288,7 @@ def poll_once() -> bool:
 
 
 def main() -> None:
-    print(
-        f"Processing raw messages every {POLL_INTERVAL_SECONDS}s | "
-        f"all tenants | model={OLLAMA_MODEL}"
-    )
+    print(f"Processing raw messages every {POLL_INTERVAL_SECONDS}s | all tenants | model={OLLAMA_MODEL}")
     while True:
         try:
             poll_once()

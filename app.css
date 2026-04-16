@@ -32,6 +32,8 @@ body {
 }
 .page { display: none; }
 .page.active { display: block; }
+body.auth-mode #sidebar,
+body.auth-mode header { visibility: hidden; }
 .crm-row:hover { background-color: #f7f3ed; }
 .crm-row { transition: background-color 0.15s ease; }
 #search-ph-wrap { transition: opacity 0.2s ease; }

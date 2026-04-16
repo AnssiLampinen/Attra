@@ -20,6 +20,16 @@ var _filterQuery = '';
 var _filterStatuses = [];
 var _filterTagIds = [];
 
+// ---- API helper ----
+function _apiFetch(method, url, body) {
+  var opts = { method: method, headers: { 'Authorization': 'Bearer ' + _authToken } };
+  if (body !== undefined) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  return fetch(url, opts);
+}
+
 // ---- Dashboard view toggle ----
 function toggleDashView(mode) {
   _dashView = mode;
@@ -64,6 +74,7 @@ function _showApp(session) {
   _authToken = session.access_token;
   _userName = (session.user.email || '').split('@')[0];
   document.getElementById('login-overlay').style.display = 'none';
+  document.body.classList.remove('auth-mode');
 
   var nameEl = document.getElementById('settings-name');
   var displayEl = document.getElementById('profile-display-name');
@@ -110,6 +121,7 @@ async function initAuth() {
       document.getElementById('forgot-password-panel').classList.add('hidden');
       document.getElementById('set-password-panel').classList.add('hidden');
       document.getElementById('login-overlay').style.display = 'flex';
+      document.body.classList.add('auth-mode');
       return;
     }
     if (event === 'SIGNED_IN' && session && urlType === 'invite') {
@@ -223,7 +235,7 @@ function closeClientDetail() {
 // ---- Settings ----
 async function loadSettings() {
   try {
-    var res = await fetch('/api/settings', { headers: { 'Authorization': 'Bearer ' + _authToken } });
+    var res = await _apiFetch('GET', '/api/settings');
     if (!res.ok) return;
     var data = await res.json();
     _settings = data;
@@ -262,11 +274,7 @@ async function toggleApiSetting(btn, key) {
   _applyToggleState(btn, newVal);
   _settings[key] = newVal;
   try {
-    await fetch('/api/settings', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
-      body: JSON.stringify({ [key]: newVal }),
-    });
+    await _apiFetch('PATCH', '/api/settings', { [key]: newVal });
   } catch (_) {}
   if (key === 'hide_personal_contacts') loadAllLeadData();
 }
@@ -322,11 +330,7 @@ async function saveProfileSettings() {
   try {
     var payload = { display_name: _userName };
     if (beeperName) payload.username = beeperName;
-    var res = await fetch('/api/settings', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _authToken },
-      body: JSON.stringify(payload),
-    });
+    var res = await _apiFetch('PATCH', '/api/settings', payload);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     if (msgEl) {
       msgEl.textContent = 'Saved.';
@@ -340,7 +344,7 @@ async function saveProfileSettings() {
 
 // ---- Global event listeners ----
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeDealModal(); closeClientModal(); closeSearch(); }
+  if (e.key === 'Escape') { closeDealModal(); closeClientModal(); closeMergePicker(); closeFeedbackModal(); closeSearch(); }
 });
 
 document.addEventListener('click', function(e) {
@@ -465,3 +469,65 @@ document.addEventListener('DOMContentLoaded', function() {
   if (btnDashList) btnDashList.addEventListener('click', function() { toggleDashView('list'); });
   if (btnDashGrid) btnDashGrid.addEventListener('click', function() { toggleDashView('grid'); });
 });
+
+// ── Tooltip ───────────────────────────────────────────────────────────────────
+(function() {
+  var tip = document.getElementById('tooltip');
+  if (!tip) return;
+  var _timer = null;
+  var DELAY = 600; // ms before showing
+
+  function show(text, target) {
+    tip.textContent = text;
+    tip.style.opacity = '0';
+    tip.style.display = 'block';
+
+    var rect = target.getBoundingClientRect();
+    var tw = tip.offsetWidth;
+    var th = tip.offsetHeight;
+    var margin = 6;
+
+    // Prefer below, fall back to above
+    var top = rect.bottom + margin;
+    if (top + th > window.innerHeight - 8) top = rect.top - th - margin;
+
+    // Prefer centred on target, clamp to viewport
+    var left = rect.left + rect.width / 2 - tw / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - tw - 8));
+
+    tip.style.top = top + 'px';
+    tip.style.left = left + 'px';
+    tip.style.opacity = '1';
+  }
+
+  function hide() {
+    clearTimeout(_timer);
+    _timer = null;
+    tip.style.opacity = '0';
+  }
+
+  document.addEventListener('mouseover', function(e) {
+    var el = e.target.closest('[title]');
+    if (!el) return;
+    var text = el.getAttribute('title');
+    if (!text) return;
+    // Swap title → data-tooltip so browser native tooltip doesn't also appear
+    el.setAttribute('data-tooltip', text);
+    el.removeAttribute('title');
+    clearTimeout(_timer);
+    _timer = setTimeout(function() { show(text, el); }, DELAY);
+  });
+
+  document.addEventListener('mouseout', function(e) {
+    var el = e.target.closest('[data-tooltip]');
+    if (!el) return;
+    // Restore title so it's available next hover
+    el.setAttribute('title', el.getAttribute('data-tooltip'));
+    el.removeAttribute('data-tooltip');
+    hide();
+  });
+
+  // Hide immediately on click or scroll
+  document.addEventListener('click', hide, true);
+  document.addEventListener('scroll', hide, true);
+})();
