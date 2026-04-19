@@ -25,8 +25,13 @@ Key responsibilities:
 import json
 import os
 import urllib.request
+from datetime import datetime
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
+
+
+def _print(*args, **kwargs):
+    print(datetime.now().strftime('%H:%M:%S'), *args, **kwargs)
 
 import jwt
 
@@ -514,7 +519,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 if updated is None:
                     _json_response(self, 404, {"error": "Customer not found"})
                     return
-                print(f"Refresh queued for customer id={customer_id}")
+                _print(f"Refresh queued for customer id={customer_id}")
                 _json_response(self, 200, {"ok": True, "queued": True, "customer": updated})
             except Exception as exc:
                 _json_response(self, 500, {"error": str(exc)})
@@ -555,10 +560,10 @@ class AppHandler(SimpleHTTPRequestHandler):
                     _json_response(self, 400, {"error": "Secondary customer is deleted"})
                     return
                 merged = merge_customers(tenant_id, primary, secondary)
-                print(f"Merged customer id={secondary_id} into id={primary_id}")
+                _print(f"Merged customer id={secondary_id} into id={primary_id}")
                 _json_response(self, 200, {"ok": True, "customer": merged})
             except Exception as exc:
-                print(f"Merge failed primary={primary_id} secondary={secondary_id}: {exc}")
+                _print(f"Merge failed primary={primary_id} secondary={secondary_id}: {exc}")
                 _json_response(self, 500, {"error": f"Merge failed: {exc}"})
             return
 
@@ -571,10 +576,10 @@ class AppHandler(SimpleHTTPRequestHandler):
                 return
             try:
                 row = create_feedback(tenant_id, category, message)
-                print(f"Feedback submitted tenant={tenant_id} category={category}")
+                _print(f"Feedback submitted tenant={tenant_id} category={category}")
                 _json_response(self, 201, {"ok": True, "feedback": row})
             except Exception as exc:
-                print(f"Feedback submit failed: {exc}")
+                _print(f"Feedback submit failed: {exc}")
                 _json_response(self, 500, {"error": f"Failed: {exc}"})
             return
 
@@ -645,9 +650,9 @@ class AppHandler(SimpleHTTPRequestHandler):
                         messages=[{"sender": "Team note", "text": transcription}],
                         latest_message_id=f"voice-note-{ts}-{customer_id}",
                     )
-                    print(f"Voice note queued as batch_id={batch_id} for customer id={customer_id}")
+                    _print(f"Voice note queued as batch_id={batch_id} for customer id={customer_id}")
                 except Exception as exc:
-                    print(f"Voice note background processing failed: {exc}")
+                    _print(f"Voice note background processing failed: {exc}")
                 finally:
                     try:
                         os.unlink(tmp_path)
@@ -664,9 +669,9 @@ def main() -> None:
     db_info = initialize_database()
 
     server = ThreadingHTTPServer((HOST, PORT), AppHandler)
-    print(f"Serving ATTRA app at http://{HOST}:{PORT}")
+    _print(f"Serving ATTRA app at http://{HOST}:{PORT}")
     if db_info.get("created_default_tenant"):
-        print(f"Default tenant API key: {db_info['default_tenant_api_key']}")
+        _print(f"Default tenant API key: {db_info['default_tenant_api_key']}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -47,6 +47,10 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
+
+def _print(*args, **kwargs):
+    print(datetime.now().strftime('%H:%M:%S'), *args, **kwargs)
+
 from database import (
     append_messages_to_batch,
     clear_customer_needs_refresh,
@@ -300,7 +304,7 @@ def _ingest_chat(chat: Any, hide_personal_contacts: bool = False) -> None:
     customer_id = find_customer(TENANT_ID, contact["name"], network_values)
     is_new = customer_id is None
     if not is_new and is_customer_deleted(customer_id):
-        print(f"Skipping '{contact['name']}' (deleted)")
+        _print(f"Skipping '{contact['name']}' (deleted)")
         return
     if is_new:
         payload = {
@@ -313,7 +317,7 @@ def _ingest_chat(chat: Any, hide_personal_contacts: bool = False) -> None:
             **network_values,
         }
         customer_id = upsert_customer_payload(TENANT_ID, payload)
-        print(f"Created customer stub for '{contact['name']}' (id={customer_id})")
+        _print(f"Created customer stub for '{contact['name']}' (id={customer_id})")
 
     existing = None
     is_refresh = False
@@ -326,7 +330,7 @@ def _ingest_chat(chat: Any, hide_personal_contacts: bool = False) -> None:
 
     if hide_personal_contacts and not is_new:
         if existing and existing.get("status") == "personal contact":
-            print(f"Skipping '{contact['name']}' (personal contact, hide enabled)")
+            _print(f"Skipping '{contact['name']}' (personal contact, hide enabled)")
             return
 
     limit = NEW_CUSTOMER_MESSAGE_LIMIT if (is_new or is_refresh) else EXISTING_CUSTOMER_MESSAGE_LIMIT
@@ -338,10 +342,10 @@ def _ingest_chat(chat: Any, hide_personal_contacts: bool = False) -> None:
         if not is_refresh and pending["latest_message_id"] == latest_msg_id:
             return
         append_messages_to_batch(pending["id"], serialized, latest_msg_id)
-        print(f"Appended to pending batch for '{contact['name']}' (batch_id={pending['id']})")
+        _print(f"Appended to pending batch for '{contact['name']}' (batch_id={pending['id']})")
         if is_refresh:
             clear_customer_needs_refresh(TENANT_ID, customer_id)
-            print(f"Refresh queued for '{contact['name']}'")
+            _print(f"Refresh queued for '{contact['name']}'")
         return
 
     # No pending batch — skip if customer is already fully up to date (unless refresh forced)
@@ -353,7 +357,7 @@ def _ingest_chat(chat: Any, hide_personal_contacts: bool = False) -> None:
     if is_refresh:
         clear_customer_needs_refresh(TENANT_ID, customer_id)
         print(f"Refresh queued for '{contact['name']}'")
-    print(f"Ingested {len(serialized)} messages for '{contact['name']}' (customer_id={customer_id}, batch_id={batch_id}, {'new' if is_new else 'existing'})")
+    _print(f"Ingested {len(serialized)} messages for '{contact['name']}' (customer_id={customer_id}, batch_id={batch_id}, {'new' if is_new else 'existing'})")
 
 
 def poll_once() -> None:
@@ -363,19 +367,19 @@ def poll_once() -> None:
         try:
             _ingest_chat(chat, hide_personal_contacts=hide_personal_contacts)
         except Exception as exc:
-            print(f"Failed to ingest '{_chat_title(chat)}': {exc}")
+            _print(f"Failed to ingest '{_chat_title(chat)}': {exc}")
 
 
 def main() -> None:
-    print(f"Ingesting Beeper messages every {POLL_INTERVAL_SECONDS}s | tenant={TENANT_ID} | monitoring {MONITORED_CONVERSATIONS} chats")
+    _print(f"Ingesting Beeper messages every {POLL_INTERVAL_SECONDS}s | tenant={TENANT_ID} | monitoring {MONITORED_CONVERSATIONS} chats")
     while True:
         try:
             poll_once()
         except KeyboardInterrupt:
-            print("Stopped.")
+            _print("Stopped.")
             break
         except Exception as exc:
-            print(f"Ingest loop error: {exc}")
+            _print(f"Ingest loop error: {exc}")
         time.sleep(POLL_INTERVAL_SECONDS)
 
 

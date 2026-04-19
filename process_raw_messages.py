@@ -40,6 +40,10 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+
+def _print(*args, **kwargs):
+    print(datetime.now().strftime('%H:%M:%S'), *args, **kwargs)
+
 from env_loader import _load_env_file
 
 # Load .env before anything that reads os.environ
@@ -226,13 +230,13 @@ def _process_batch(row: dict) -> None:
     username = (tenant or {}).get("username") or "you"
 
     if is_customer_deleted(customer_id):
-        print(f"Customer id={customer_id} is deleted — marking processed and skipping")
+        _print(f"Customer id={customer_id} is deleted — marking processed and skipping")
         mark_batch_processed(batch_id)
         return
 
     existing = get_customer(tenant_id, customer_id)
     if existing is None:
-        print(f"Customer id={customer_id} not found — marking processed and skipping")
+        _print(f"Customer id={customer_id} not found — marking processed and skipping")
         mark_batch_processed(batch_id)
         return
 
@@ -241,12 +245,12 @@ def _process_batch(row: dict) -> None:
     # Skip if a later batch already moved the customer past this message
     stored_msg_id = str(existing.get("last_processed_message_id") or "")
     if stored_msg_id == latest_msg_id:
-        print(f"Customer '{name}' already up to date — marking processed")
+        _print(f"Customer '{name}' already up to date — marking processed")
         mark_batch_processed(batch_id)
         return
 
     start = datetime.now(timezone.utc)
-    print(f"Processing batch_id={batch_id} for customer '{name}' (id={customer_id}) …")
+    _print(f"Processing batch_id={batch_id} for customer '{name}' (id={customer_id}) …")
 
     existing_summary = str(existing.get("summary") or "")
     existing_profile_notes = str(existing.get("profile_notes") or "")
@@ -272,7 +276,7 @@ def _process_batch(row: dict) -> None:
 
     elapsed = (datetime.now(timezone.utc) - start).total_seconds()
     changed = updated_summary != existing_summary
-    print(f"Done — customer '{name}' {'summary updated' if changed else 'no summary change'} ({elapsed:.1f}s)")
+    _print(f"Done — customer '{name}' {'summary updated' if changed else 'no summary change'} ({elapsed:.1f}s)")
 
 
 def poll_once() -> bool:
@@ -283,20 +287,20 @@ def poll_once() -> bool:
     try:
         _process_batch(row)
     except Exception as exc:
-        print(f"Failed to process batch id={row['id']}: {exc}")
+        _print(f"Failed to process batch id={row['id']}: {exc}")
     return True
 
 
 def main() -> None:
-    print(f"Processing raw messages every {POLL_INTERVAL_SECONDS}s | all tenants | model={OLLAMA_MODEL}")
+    _print(f"Processing raw messages every {POLL_INTERVAL_SECONDS}s | all tenants | model={OLLAMA_MODEL}")
     while True:
         try:
             poll_once()
         except KeyboardInterrupt:
-            print("Stopped.")
+            _print("Stopped.")
             break
         except Exception as exc:
-            print(f"Processor loop error: {exc}")
+            _print(f"Processor loop error: {exc}")
         time.sleep(POLL_INTERVAL_SECONDS)
 
 

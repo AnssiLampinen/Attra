@@ -18,8 +18,13 @@ Exported names used by other scripts:
 """
 
 import os
+from datetime import datetime
 
 from beeper_desktop_api import BeeperDesktop
+
+
+def _print(*args, **kwargs):
+    print(datetime.now().strftime('%H:%M:%S'), *args, **kwargs)
 
 from env_loader import _load_env_file
 
@@ -216,11 +221,11 @@ if __name__ == "__main__":
     latest_private_chat = _find_latest_private_chat()
     messages = _fetch_last_messages(latest_private_chat, limit=MESSAGE_LIMIT)
 
-    print(f"Latest private chat: {_chat_title(latest_private_chat)}")
-    print(f"Showing the last {len(messages)} messages:\n")
+    _print(f"Latest private chat: {_chat_title(latest_private_chat)}")
+    _print(f"Showing the last {len(messages)} messages:\n")
 
     for message in messages:
         sender = getattr(message, "sender_name", None) or getattr(message, "sender", None) or "Unknown"
         text = getattr(message, "text", None) or getattr(message, "body", None) or getattr(message, "content", None) or "[Attachment]"
-        print(f"{sender}: {text}")
+        _print(f"{sender}: {text}")
 

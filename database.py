@@ -637,15 +637,35 @@ def transfer_events_to_customer(
         .execute()
 
 
+def transfer_deals_to_customer(
+    tenant_id: str, from_customer_id: int, to_customer_id: int
+) -> None:
+    """Bulk-reassign all deals from one customer to another."""
+    supabase.table("deals") \
+        .update({"customer_id": to_customer_id}) \
+        .eq("tenant_id", tenant_id) \
+        .eq("customer_id", from_customer_id) \
+        .execute()
+
+
+def hard_delete_customer(tenant_id: str, customer_id: int) -> None:
+    """Permanently delete a customer row and all child rows (tags, raw_messages)."""
+    supabase.table("customer_tags").delete().eq("customer_id", customer_id).execute()
+    supabase.table("raw_messages").delete() \
+        .eq("tenant_id", tenant_id).eq("customer_id", customer_id).execute()
+    supabase.table("customers").delete() \
+        .eq("tenant_id", tenant_id).eq("id", customer_id).execute()
+
+
 def merge_customers(tenant_id: str, primary: dict, secondary: dict) -> dict:
     """Merge secondary into primary. Returns updated primary row.
 
     Operation order (safe for non-atomic Supabase):
       1. Build update dict in Python (no DB writes yet)
       2. UPDATE primary fields
-      3. Bulk-reassign events to primary
+      3. Bulk-reassign events and deals to primary
       4. Union tags onto primary
-      5. Soft-delete secondary
+      5. Hard-delete secondary (customer_tags, raw_messages, customer row)
       6. Set needs_refresh=True on primary (LLM will clean up combined profile_notes)
     """
     primary_id = int(primary["id"])
@@ -653,7 +673,7 @@ def merge_customers(tenant_id: str, primary: dict, secondary: dict) -> dict:
 
     update: dict[str, Any] = {}
 
-    # Network IDs: fill primary gaps from secondary
+    # Network IDs: copy all non-empty values from secondary that primary lacks
     for col in NETWORK_ID_COLUMNS:
         if not (primary.get(col) or "").strip() and (secondary.get(col) or "").strip():
             update[col] = secondary[col]
@@ -674,12 +694,13 @@ def merge_customers(tenant_id: str, primary: dict, secondary: dict) -> dict:
         update_customer(tenant_id, primary_id, update)
 
     transfer_events_to_customer(tenant_id, secondary_id, primary_id)
+    transfer_deals_to_customer(tenant_id, secondary_id, primary_id)
 
     primary_tag_ids = {t["id"] for t in get_customer_tags(primary_id)}
     secondary_tag_ids = {t["id"] for t in get_customer_tags(secondary_id)}
     set_customer_tags(primary_id, list(primary_tag_ids | secondary_tag_ids))
 
-    soft_delete_customer(tenant_id, secondary_id)
+    hard_delete_customer(tenant_id, secondary_id)
 
     # Set needs_refresh directly — do NOT use queue_customer_refresh() which would
     # clear the just-concatenated profile_notes

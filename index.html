@@ -441,7 +441,7 @@ Here's your situation at a glance.
 <div class="h-px flex-1 bg-outline-variant/30"></div>
 </div>
 <h1 class="serif-display text-5xl md:text-7xl font-bold tracking-tight text-on-surface leading-tight">Settings</h1>
-<p class="text-secondary mt-4 max-w-2xl text-lg leading-relaxed font-light">Manage your profile, notifications, and how ATTRA AI works for you.</p>
+<p class="text-secondary mt-4 max-w-2xl text-lg leading-relaxed font-light">Manage your profile and how ATTRA AI works for you.</p>
 </header>
 
 <div class="max-w-2xl space-y-6">
@@ -497,7 +497,7 @@ Here's your situation at a glance.
 <div class="flex items-center justify-between">
 <div>
 <p class="font-medium text-on-surface text-sm">Hide personal contacts</p>
-<p class="text-xs text-secondary mt-0.5">Personal contacts won't appear in the client list and their messages won't be pulled from Beeper</p>
+<p class="text-xs text-secondary mt-0.5">Personal contacts won't appear in the client list and their messages won't be scanned</p>
 </div>
 <button id="toggle-hide-personal-contacts" onclick="toggleApiSetting(this, 'hide_personal_contacts')" data-on="false" class="setting-toggle w-11 h-6 rounded-full bg-surface-container-high transition-all relative flex-shrink-0">
 <span class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all"></span>
@@ -521,41 +521,7 @@ Here's your situation at a glance.
 <span class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all translate-x-5"></span>
 </button>
 </div>
-<div class="h-px bg-outline-variant/15"></div>
-<div class="flex items-center justify-between">
-<div>
-<p class="font-medium text-on-surface text-sm">Auto-draft messages</p>
-<p class="text-xs text-secondary mt-0.5">AI writes follow-ups based on client interactions</p>
-</div>
-<button onclick="toggleSetting(this)" data-on="true" class="setting-toggle w-11 h-6 rounded-full bg-primary transition-all relative flex-shrink-0">
-<span class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all translate-x-5"></span>
-</button>
-</div>
-<div class="h-px bg-outline-variant/15"></div>
-<div class="flex items-center justify-between">
-<div>
-<p class="font-medium text-on-surface text-sm">Require approval before sending</p>
-<p class="text-xs text-secondary mt-0.5">Messages wait in inbox for your sign-off</p>
-</div>
-<button onclick="toggleSetting(this)" data-on="true" class="setting-toggle w-11 h-6 rounded-full bg-primary transition-all relative flex-shrink-0">
-<span class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all translate-x-5"></span>
-</button>
-</div>
-<div class="h-px bg-outline-variant/15"></div>
-<div>
-<p class="font-medium text-on-surface text-sm mb-3">Message tone</p>
-<div class="flex gap-2 flex-wrap">
-<button onclick="selectTone(this)" class="tone-btn px-4 py-2 rounded-xl text-xs font-bold border-2 border-primary bg-primary/10 text-primary">Warm & Personal</button>
-<button onclick="selectTone(this)" class="tone-btn px-4 py-2 rounded-xl text-xs font-bold border-2 border-outline-variant/30 text-secondary hover:border-primary/30 transition-all">Professional</button>
-<button onclick="selectTone(this)" class="tone-btn px-4 py-2 rounded-xl text-xs font-bold border-2 border-outline-variant/30 text-secondary hover:border-primary/30 transition-all">Concise</button>
-</div>
-</div>
-<div class="h-px bg-outline-variant/15"></div>
-<div>
-<label class="text-[10px] uppercase tracking-[0.15em] font-bold text-secondary block mb-1.5">AI Signature</label>
-<input id="settings-signature" type="text" value="" class="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"/>
-<p class="text-[10px] text-secondary mt-1.5">Added to the end of every AI-drafted message.</p>
-</div>
+
 </div>
 </div>
 
@@ -577,54 +543,6 @@ Here's your situation at a glance.
   onkeydown="if(event.key==='Enter')confirmNewTagFromSettings();if(event.key==='Escape')cancelNewTagFromSettings();" />
 <button id="settings-new-tag-confirm" onclick="confirmNewTagFromSettings()" class="px-3 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:opacity-90 transition-all flex-shrink-0">Add</button>
 <button onclick="cancelNewTagFromSettings()" class="px-3 py-2 rounded-xl text-secondary text-xs font-bold hover:bg-surface-container-high transition-all flex-shrink-0">Cancel</button>
-</div>
-</div>
-</div>
-
-<!-- Notifications -->
-<div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/10 shadow-sm overflow-hidden">
-<div class="px-8 py-5 border-b border-outline-variant/10 bg-surface-container-low/40">
-<h3 class="font-bold text-[10px] text-secondary uppercase tracking-widest">Notifications</h3>
-</div>
-<div class="p-8 space-y-5">
-<div class="flex items-center justify-between">
-<div>
-<p class="font-medium text-on-surface text-sm">New AI-drafted messages</p>
-<p class="text-xs text-secondary mt-0.5">Get notified when ATTRA AI prepares a message</p>
-</div>
-<button onclick="toggleSetting(this)" data-on="true" class="setting-toggle w-11 h-6 rounded-full bg-primary transition-all relative flex-shrink-0">
-<span class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all translate-x-5"></span>
-</button>
-</div>
-<div class="h-px bg-outline-variant/15"></div>
-<div class="flex items-center justify-between">
-<div>
-<p class="font-medium text-on-surface text-sm">Upcoming action reminders</p>
-<p class="text-xs text-secondary mt-0.5">Reminders for tasks due today and tomorrow</p>
-</div>
-<button onclick="toggleSetting(this)" data-on="true" class="setting-toggle w-11 h-6 rounded-full bg-primary transition-all relative flex-shrink-0">
-<span class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all translate-x-5"></span>
-</button>
-</div>
-<div class="h-px bg-outline-variant/15"></div>
-<div class="flex items-center justify-between">
-<div>
-<p class="font-medium text-on-surface text-sm">New client added</p>
-<p class="text-xs text-secondary mt-0.5">Alert when a new lead enters your pipeline</p>
-</div>
-<button onclick="toggleSetting(this)" data-on="false" class="setting-toggle w-11 h-6 rounded-full bg-surface-container-high transition-all relative flex-shrink-0">
-<span class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all"></span>
-</button>
-</div>
-<div class="h-px bg-outline-variant/15"></div>
-<div class="flex items-center justify-between">
-<div>
-<p class="font-medium text-on-surface text-sm">Deal closed</p>
-<p class="text-xs text-secondary mt-0.5">Celebrate when a deal moves to Closed</p>
-</div>
-<button onclick="toggleSetting(this)" data-on="true" class="setting-toggle w-11 h-6 rounded-full bg-primary transition-all relative flex-shrink-0">
-<span class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all translate-x-5"></span>
-</button>
 </div>
 </div>
 </div>
